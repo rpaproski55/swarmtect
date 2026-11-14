@@ -131,11 +131,12 @@ class FakeMongoStore:
 def atlas_app(monkeypatch):
     import backend.app.main as M
     monkeypatch.setattr(M, "store", FakeMongoStore())
+    H.clear(); H["x-operator-secret"] = M.OPERATOR_SECRET  # whatever the app was configured with
     from fastapi.testclient import TestClient
     return TestClient(M.app, raise_server_exceptions=False)
 
 
-H = {"x-operator-secret": "demo-operator-secret-change-me"}
+H: dict = {}
 
 
 def test_demo_page_flow_on_atlas_path(atlas_app):
