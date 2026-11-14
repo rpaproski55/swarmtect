@@ -1,6 +1,6 @@
 from __future__ import annotations
 import os
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from .store import get_store
 from .gateway import Gateway
@@ -85,7 +85,7 @@ def graph(tenant_id: str = "demo"):
             nodes[art] = {"id": art, "kind": "artifact", "label": art}
             edges.append({"from": art, "to": ep["_id"], "kind": "evidence_artifact"})
         for eid in ep["evidence_event_ids"]:
-            ev = store.find_one("events", {"_id": eid})
+            ev = store.find_one("events", {"_id": eid, "tenant_id": tenant_id})
             if ev and ev["event_type"] in ("artifact_write", "artifact_read") and ev.get("artifact_id"):
                 edges.append({"from": ev["agent_id"], "to": ev["artifact_id"],
                               "kind": ev["event_type"], "event_id": eid})
@@ -136,19 +136,57 @@ def health():
     except Exception as e:
         return {"ok": False, "store_backend": backend, "atlas_connected": False, "error": type(e).__name__}
 
+def _require_agent(req, key: str | None):
+    """401 without a key; 403 if the key isn't valid for (tenant_id, agent_id) in the body."""
+    from .identity import verify_agent_key
+    if not key:
+        raise HTTPException(401, "agent credentials required (x-agent-key)")
+    if not verify_agent_key(req.tenant_id, req.agent_id, key):
+        raise HTTPException(403, "x-agent-key is not valid for this agent")
+
+
+def _detect_after_write(tenant_id: str):
+    """Detection on the write path: runs after the agent's response is sent (BackgroundTasks),
+    serialized with demo runs. Synchronous post-event detection; a Change Streams worker is future work."""
+    try:
+        with DEMO_LOCK:
+            Detector(store).run(tenant_id)
+    except Exception as e:  # never fail the agent's call because of detection
+        log.error("post-write detection failed: %s", e)
+
+
 @app.post("/api/tool/execute")
-def tool_execute(req: ToolReq):
-    return gw().execute_tool(req.tenant_id, req.agent_id, req.task_id, req.tool, req.action,
-                             req.resource_id, req.action_id, req.payload)
+def tool_execute(req: ToolReq, background: BackgroundTasks, x_agent_key: str | None = Header(default=None)):
+    _require_agent(req, x_agent_key)
+    with DEMO_LOCK:
+        r = gw().execute_tool(req.tenant_id, req.agent_id, req.task_id, req.tool, req.action,
+                              req.resource_id, req.action_id, req.payload)
+    background.add_task(_detect_after_write, req.tenant_id)
+    return r
 
 @app.post("/api/artifacts/write")
-def artifact_write(req: WriteReq):
-    return gw().write_artifact(req.tenant_id, req.agent_id, req.task_id, req.resource_id,
-                               req.channel_id, req.content, req.action_id)
+def artifact_write(req: WriteReq, background: BackgroundTasks, x_agent_key: str | None = Header(default=None)):
+    _require_agent(req, x_agent_key)
+    with DEMO_LOCK:
+        r = gw().write_artifact(req.tenant_id, req.agent_id, req.task_id, req.resource_id,
+                                req.channel_id, req.content, req.action_id)
+    background.add_task(_detect_after_write, req.tenant_id)
+    return r
 
 @app.post("/api/artifacts/read")
-def artifact_read(req: ReadReq):
-    return gw().read_artifact(req.tenant_id, req.agent_id, req.task_id, req.artifact_id, req.action_id)
+def artifact_read(req: ReadReq, background: BackgroundTasks, x_agent_key: str | None = Header(default=None)):
+    _require_agent(req, x_agent_key)
+    with DEMO_LOCK:
+        r = gw().read_artifact(req.tenant_id, req.agent_id, req.task_id, req.artifact_id, req.action_id)
+    background.add_task(_detect_after_write, req.tenant_id)
+    return r
+
+@app.get("/api/demo/agent-keys")
+def demo_agent_keys(tenant_id: str = "demo", x_operator_secret: str | None = Header(default=None)):
+    """Operator only: keys for the demo tenant so a judge can drive a live agent with curl."""
+    require_operator(x_operator_secret)
+    from .identity import issue_agent_key
+    return {a["_id"]: issue_agent_key(tenant_id, a["_id"]) for a in store.find("agents", {"tenant_id": tenant_id})}
 
 @app.get("/api/agents")
 def agents(tenant_id: str = "demo"):
@@ -156,9 +194,8 @@ def agents(tenant_id: str = "demo"):
 
 @app.get("/api/episodes")
 def episodes(tenant_id: str = "demo"):
-    with DEMO_LOCK:
-        Detector(store).run(tenant_id)
-        return store.find("episodes", {"tenant_id": tenant_id})
+    """Read-only: detection runs on the write path and in /api/demo/run, never on GET."""
+    return store.find("episodes", {"tenant_id": tenant_id})
 
 @app.get("/api/episodes/{episode_id}")
 def episode(episode_id: str, tenant_id: str = "demo"):
@@ -166,17 +203,16 @@ def episode(episode_id: str, tenant_id: str = "demo"):
     if not ep:
         raise HTTPException(404, "episode not found")
     ids = ep["evidence_event_ids"]
-    by_id = {e["_id"]: e for e in store.find("events", {"_id": {"$in": ids}})}  # one round trip
-    artifacts = store.find("artifacts", {"_id": {"$in": ep.get("artifact_ids", [])}}) if ep.get("artifact_ids") else []
-    effects = store.find("gateway_effects", {"event_id": {"$in": ids}})
+    by_id = {e["_id"]: e for e in store.find("events", {"tenant_id": tenant_id, "_id": {"$in": ids}})}  # one round trip
+    artifacts = store.find("artifacts", {"tenant_id": tenant_id, "_id": {"$in": ep.get("artifact_ids", [])}}) if ep.get("artifact_ids") else []
+    effects = store.find("gateway_effects", {"tenant_id": tenant_id, "event_id": {"$in": ids}})
     return {**ep, "timeline": sorted([by_id[i] for i in ids if i in by_id], key=lambda e: e["ts"]),
             "artifacts": artifacts, "effects": effects}
 
 @app.get("/api/metrics")
 def metrics(tenant_id: str = "demo"):
-    with DEMO_LOCK:
-        Detector(store).run(tenant_id)
-        return compute_metrics(store, tenant_id)
+    """Read-only."""
+    return compute_metrics(store, tenant_id)
 
 @app.get("/api/baseline")
 def baseline(tenant_id: str = "demo"):
