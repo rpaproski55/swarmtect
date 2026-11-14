@@ -10,7 +10,7 @@ The unit of detection is a **coordination episode** — not an isolated agent ru
 ## 5-minute setup
 
 ```bash
-cd swarmguard
+cd swarmtect
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"   # Python 3.11–3.14 (3.15 lacks openinference wheels)
 cp .env.example .env        # add MONGODB_URI here for Atlas (loaded automatically); blank = labelled in-memory fallback
 .venv/bin/python scripts/setup_atlas.py   # idempotent: indexes + Vector Search index (Atlas only)
