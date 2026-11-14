@@ -13,7 +13,7 @@ def _aid(prefix="act"):
 def fresh_world(store, tenant_id="demo", n_agents=30):
     # Verified-case memory survives scenario resets by design — learning from
     # confirmed incidents is the point of the memory layer. Full wipe is /api/demo/reset.
-    store.clear(preserve=("verified_cases",))
+    store.clear(preserve=("verified_cases",), tenant_id=tenant_id)   # never touch other tenants
     _counter["n"] = 0
     setup_world(store, tenant_id=tenant_id, n_agents=n_agents)
     if tenant_id == "demo":
@@ -91,6 +91,7 @@ def run_s4(store, tenant_id="demo"):
 
 def run_s5(store, tenant_id="demo"):
     """Same signature in two tenants must never merge."""
+    store.clear(preserve=("verified_cases",), tenant_id="tenant2")  # seeds use fixed _ids
     gw = fresh_world(store, tenant_id="demo")
     setup_world(store, tenant_id="tenant2", n_agents=12)
     info_a = _board_attack(store, "demo", gw, with_sensitive_attempt=True)

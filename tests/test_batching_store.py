@@ -11,7 +11,8 @@ class FakeColl:
     def find(self, filt):
         self.log.append(("find", self.name)); return [dict(d) for d in self.docs]
     def delete_many(self, filt):
-        self.log.append(("delete_many", self.name)); self.docs = []
+        self.log.append(("delete_many", self.name))
+        self.docs = [d for d in self.docs if not all(d.get(k) == v for k, v in (filt or {}).items())]
     def insert_many(self, docs, ordered=True):
         self.log.append(("insert_many", self.name)); self.docs += [dict(d) for d in docs]
     def update_one(self, filt, upd):
@@ -121,10 +122,10 @@ class FakeMongoStore:
         for d in self.db[c].docs:
             if self.db[c]._m(d, f): d.update(ch); return dict(d)
     def count(self, c, f=None): return len(self.find(c, f))
-    def clear(self, preserve=()):
+    def clear(self, preserve=(), tenant_id=None):
         from backend.app.store import COLLECTIONS
         for c in COLLECTIONS:
-            if c not in preserve: self.db[c].delete_many({})
+            if c not in preserve: self.db[c].delete_many({} if tenant_id is None else {"tenant_id": tenant_id})
 
 
 @pytest.fixture()

@@ -42,9 +42,11 @@ class MemoryStore:
         return None
     def count(self, coll: str, filt: dict | None = None) -> int:
         return len(self.find(coll, filt))
-    def clear(self, preserve=()):
+    def clear(self, preserve=(), tenant_id=None):
+        """Delete demo data. With tenant_id, only that tenant's documents (other tenants untouched)."""
         for c in COLLECTIONS:
-            if c not in preserve: self.data[c] = []
+            if c in preserve: continue
+            self.data[c] = [] if tenant_id is None else [d for d in self.data[c] if d.get("tenant_id") != tenant_id]
 
 class MongoStore:
     backend = "mongodb-atlas"
@@ -54,7 +56,17 @@ class MongoStore:
         self.client.admin.command("ping")  # fail loudly, never fake Atlas
         self.db = self.client[db_name]
     def insert(self, coll, doc):
-        d = copy.deepcopy(doc); self.db[coll].insert_one(copy.deepcopy(d)); return d
+        from pymongo.errors import DuplicateKeyError
+        d = copy.deepcopy(doc)
+        try:
+            self.db[coll].insert_one(copy.deepcopy(d))
+        except DuplicateKeyError:
+            if coll != "gateway_effects":
+                raise
+            # concurrent duplicate of the same (tenant, agent, action_id): return the stored effect
+            existing = self.db[coll].find_one({k: d.get(k) for k in ("tenant_id", "agent_id", "action_id")})
+            return existing or d
+        return d
     def find(self, coll, filt=None):
         # Our docs use a string _id (e.g. evt_...), which is also Mongo's _id — return it as-is.
         return list(self.db[coll].find(filt or {}))
@@ -65,9 +77,10 @@ class MongoStore:
         return self.find_one(coll, filt)
     def count(self, coll, filt=None):
         return self.db[coll].count_documents(filt or {})
-    def clear(self, preserve=()):
+    def clear(self, preserve=(), tenant_id=None):
+        filt = {} if tenant_id is None else {"tenant_id": tenant_id}
         for c in COLLECTIONS:
-            if c not in preserve: self.db[c].delete_many({})
+            if c not in preserve: self.db[c].delete_many(filt)
 
 class BatchingStore(MemoryStore):
     """Run-scoped write-behind wrapper over MongoStore for demo scenario runs.
@@ -84,7 +97,7 @@ class BatchingStore(MemoryStore):
     def __init__(self, inner: "MongoStore", preload=("verified_cases",)):
         super().__init__()
         self.inner, self.db = inner, inner.db
-        self._cleared: set[str] = set()
+        self._cleared: set[tuple] = set()   # (collection, tenant_id or None for all)
         self._inserted: dict[str, list] = {c: [] for c in COLLECTIONS}
         self._updates: list[tuple[str, dict, dict]] = []
         for c in preload:  # small, needed for case-memory lookups during detection
@@ -101,18 +114,21 @@ class BatchingStore(MemoryStore):
             self._updates.append((coll, filt, changes))  # doc predates this run: patch it in Atlas
         return d
 
-    def clear(self, preserve=()):
-        super().clear(preserve)
+    def clear(self, preserve=(), tenant_id=None):
+        super().clear(preserve, tenant_id)
         for c in COLLECTIONS:
             if c not in preserve:
-                self._cleared.add(c); self._inserted[c] = []
+                self._cleared.add((c, tenant_id))
+                keep = {d["_id"] for d in self.data[c]}
+                self._inserted[c] = [i for i in self._inserted[c] if i in keep]
         self._updates = [u for u in self._updates if u[0] in preserve]
 
     def flush(self) -> dict:
         from concurrent.futures import ThreadPoolExecutor
         ids_by_coll = {c: set(ids) for c, ids in self._inserted.items() if ids}
         with ThreadPoolExecutor(max_workers=12) as pool:
-            list(pool.map(lambda c: self.db[c].delete_many({}), sorted(self._cleared)))
+            list(pool.map(lambda ct: self.db[ct[0]].delete_many({} if ct[1] is None else {"tenant_id": ct[1]}),
+                          sorted(self._cleared, key=lambda ct: (ct[0], ct[1] or ""))))
             def write(c):
                 docs = [d for d in self.data[c] if d["_id"] in ids_by_coll[c]]
                 if docs:
@@ -121,7 +137,7 @@ class BatchingStore(MemoryStore):
             counts = dict(zip(ids_by_coll, pool.map(write, list(ids_by_coll))))
         for coll, filt, changes in self._updates:
             self.db[coll].update_one(filt, {"$set": changes})
-        written = {"cleared": sorted(self._cleared), "inserted": counts, "updated": len(self._updates)}
+        written = {"cleared": sorted({f"{c}:{t or '*'}" for c, t in self._cleared}), "inserted": counts, "updated": len(self._updates)}
         self._cleared, self._updates = set(), []
         self._inserted = {c: [] for c in COLLECTIONS}
         return written

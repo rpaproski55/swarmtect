@@ -198,8 +198,12 @@ def release(agent_id: str, tenant_id: str = "demo", x_operator_secret: str | Non
 def demo_reset(x_operator_secret: str | None = Header(default=None)):
     require_operator(x_operator_secret)
     with DEMO_LOCK:
-        store.clear()
-    return {"reset": True}
+        if os.environ.get("ALLOW_GLOBAL_RESET") == "1":
+            store.clear(preserve=("verified_cases",))
+            return {"reset": True, "scope": "all tenants"}
+        for t in ("demo", "tenant2", "redteam"):
+            store.clear(preserve=("verified_cases",), tenant_id=t)
+    return {"reset": True, "scope": "demo tenants only"}
 
 @app.post("/api/demo/run")
 def demo_run(req: DemoReq, x_operator_secret: str | None = Header(default=None)):

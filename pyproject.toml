@@ -27,6 +27,7 @@ dev = ["pytest>=8"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["p0: demo-blocking fixes", "p1: detection upgrades"]
 
 [tool.setuptools.packages.find]
 include = ["backend*", "simulator*"]

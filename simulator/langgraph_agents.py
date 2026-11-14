@@ -7,7 +7,7 @@ from backend.agent_engine.main import build_monitored_agent
 from simulator.seeds import setup_world, agents_for_task
 
 def run_s6_langgraph(store, tenant_id="demo"):
-    store.clear(preserve=("verified_cases",))
+    store.clear(preserve=("verified_cases",), tenant_id=tenant_id)
     setup_world(store, tenant_id=tenant_id, n_agents=30)
     qa = agents_for_task(store, tenant_id, "task_qa")[0]
     mkt = agents_for_task(store, tenant_id, "task_marketing")[0]
