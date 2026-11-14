@@ -15,11 +15,20 @@ class FakeColl:
         self.docs = [d for d in self.docs if not all(d.get(k) == v for k, v in (filt or {}).items())]
     def insert_many(self, docs, ordered=True):
         self.log.append(("insert_many", self.name)); self.docs += [dict(d) for d in docs]
-    def update_one(self, filt, upd):
+    def find_one(self, filt):
+        self.log.append(("find_one", self.name))
+        return next((dict(d) for d in self.docs if all(d.get(k) == v for k, v in filt.items())), None)
+    def update_one(self, filt, upd, upsert=False):
         self.log.append(("update_one", self.name))
         for d in self.docs:
             if all(d.get(k) == v for k, v in filt.items()):
-                d.update(upd["$set"]); return
+                break
+        else:
+            if not upsert: return
+            d = dict(filt); self.docs.append(d)
+        d.update(upd.get("$set", {}))
+        for k, v in upd.get("$max", {}).items():
+            d[k] = max(d.get(k, v), v)
 
 
 class FakeDB(dict):

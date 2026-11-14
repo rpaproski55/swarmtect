@@ -14,10 +14,13 @@ def store_verified_case(store, tenant_id, case_text, episode_id, evidence_event_
         "validation": "operator_confirmed", "review_status": "verified",
         "embedding": embedding, "embedding_model": model, "created_at": now().isoformat(), "expires_at": None})
 
-def confirm_episode_as_case(store, tenant_id, episode_id):
+def confirm_episode_as_case(store, tenant_id, episode_id, actor="operator"):
     ep = store.find_one("episodes", {"_id": episode_id, "tenant_id": tenant_id})
     if not ep:
         return None
+    if ep.get("status") != "confirmed":
+        store.update("episodes", {"_id": episode_id, "tenant_id": tenant_id},
+                     {"status": "confirmed", "confirmed_by": actor, "confirmed_at": now().isoformat()})
     existing = store.find_one("verified_cases", {"provenance_episode_id": episode_id, "tenant_id": tenant_id})
     if existing:
         return existing

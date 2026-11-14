@@ -34,6 +34,7 @@ class Gateway:
                artifact_id, outcome, metadata=None, source="gateway"):
         ev = {
             "_id": new_id("evt"), "tenant_id": tenant_id, "ts": now().isoformat(),
+            "seq": self.store.next_seq(tenant_id) if hasattr(self.store, "next_seq") else None,
             "source": source, "integrity": "authoritative" if source == "gateway" else "self_reported",
             "agent_id": agent["_id"] if agent else None,
             "task_id": task["_id"] if task else (agent.get("task_id") if agent else None),

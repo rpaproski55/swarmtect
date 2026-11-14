@@ -31,3 +31,11 @@ All adversarial behavior is synthetic, in a toy org (Northstar Labs) with fake r
 - Live per-call paths are unchanged: `/api/tool/execute`, artifact routes, Vector Search.
 - `/api/health` now pings Atlas instead of reporting configuration only.
 - S2 fix: the sensitive request now comes from the Marketing agent that read the QA-written board (cross-task), so the episode carries R4 goal drift as the demo script describes.
+
+## Hardening from external review (2026-11-14, branch `claude/great-babbage-x1nmiy`)
+Red-team suite: `tests/test_redteam.py` (from `docs/REVIEW.md`). Verified with
+`SWARMGUARD_SKIP_DOTENV=1 RUNNER_MODE=aer .venv/bin/python -m pytest -q` (in-memory store; not yet re-run on Atlas).
+- **Landed (tests pass):** P0-1 server-derived task identity · P0-2 resource required · P0-3/4 per-agent action ids + conflict detection · P0-5 one board = one episode (upsert) · P0-6 `configs/rules.yaml` drives detection · P0-7 agent keys (`x-agent-key`) on HTTP agent routes · P0-8 GETs are read-only · P0-9 detection on the write path (post-request background task; Change Streams worker is future work) · P0-10 tenant-scoped clears · P0-11 honest numbers · P1-1 `watch` tier · P1-6 confirm records who/when · P1-7 per-tenant event `seq` · P1-8 a single agent's single blocked mistake is an alert, not a quarantine (R5 no longer adds a synthetic R1).
+- **Pending (tests still fail, by design):** P1-2 taint/exposure lineage + `$graphLookup` blast radius · P1-3 graduated containment (restricted vs quarantined) · P1-4 R7 content signal · P1-5 non-template case memory · P1-9 randomized benchmark · P1-10 Agent Engine identity binding · `window_seconds` time window.
+- **Atlas note:** run `scripts/setup_atlas.py` once to switch the `gateway_effects` unique index to `(tenant_id, agent_id, action_id)`.
+

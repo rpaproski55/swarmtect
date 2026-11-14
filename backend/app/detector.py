@@ -14,6 +14,13 @@ from .config import rules as load_rules
 OPEN_STATUSES = ("watch", "alert", "contained")
 
 
+def _before(a: dict, b: dict) -> bool:
+    """a happened at or before b: by per-tenant seq when both have one, else by timestamp."""
+    if a.get("seq") is not None and b.get("seq") is not None:
+        return a["seq"] <= b["seq"]
+    return a["ts"] <= b["ts"]
+
+
 class Detector:
     def __init__(self, store, rules: dict | None = None):
         self.store = store
@@ -23,7 +30,8 @@ class Detector:
 
     def analyze(self, tenant_id: str) -> list[dict]:
         """Compute evidence groups without persisting. Returns candidate episodes (dicts)."""
-        events = sorted(self.store.find("events", {"tenant_id": tenant_id}), key=lambda e: e["ts"])
+        events = sorted(self.store.find("events", {"tenant_id": tenant_id}),
+                        key=lambda e: (e.get("seq") is None, e.get("seq") or 0, e["ts"]))
         auth_events = [e for e in events if e.get("integrity") == "authoritative"]
         # Group by artifact for bridge/propagation analysis
         by_artifact: dict[str, dict] = defaultdict(lambda: {"writes": [], "reads": [], "rules": set(),
@@ -56,7 +64,7 @@ class Detector:
             unauthorized = False
             for w in g["writes"]:
                 for r in g["reads"]:
-                    if w["ts"] <= r["ts"] and w["task_id"] != r["task_id"]:
+                    if _before(w, r) and w["task_id"] != r["task_id"]:
                         if not collaboration_approved(self.store, tenant_id, w["task_id"], r["task_id"], resource):
                             unauthorized = True
                             cross_pairs.append((w, r))
@@ -95,7 +103,7 @@ class Detector:
             if is_denied and ((e.get("metadata") or {}).get("high_impact") or e.get("tool") in self.high_impact):
                 b["rules"].add("R6_HIGH_IMPACT")
             # R4: drift if this agent earlier made an unauthorized read
-            if any(r["ts"] <= e["ts"] for r in unauthorized_read_events.get(e["agent_id"], [])):
+            if any(_before(r, e) for r in unauthorized_read_events.get(e["agent_id"], [])):
                 b["rules"].add("R4_GOAL_DRIFT")
 
         # R4 standalone: allowed/attempted tool call on unrelated resource after unauthorized read
@@ -113,7 +121,7 @@ class Detector:
             if mismatch:
                 key = agent_bucket.get(rep["agent_id"], f"agent:{rep['agent_id']}")
                 b = bucket(key)
-                b["rules"].add("R5_TELEMETRY_MISMATCH"); b["rules"].add("R1_POLICY_BREACH")
+                b["rules"].add("R5_TELEMETRY_MISMATCH")  # stands on its own; no synthetic R1
                 ev_id = rep.get("event_id")
                 if eff and eff["event_id"] not in b["evidence"]: b["evidence"].append(eff["event_id"])
                 if ev_id and ev_id not in b["evidence"]: b["evidence"].append(ev_id)
@@ -126,14 +134,14 @@ class Detector:
             # Alert bar: >=2 independent evidence types, or R3 alone, or R1+R6 (direct high-impact breach)
             rules = b["rules"]
             alert = len(rules) >= 2 or "R3_PROPAGATION" in rules
-            if not alert:
-                continue
             score = sum(self.weights.get(r, 0) for r in rules)
+            if not alert and score <= 0:
+                continue
             out.append({"tenant_id": tenant_id, "agent_ids": sorted(b["agents"]), "task_ids": sorted(x for x in b["tasks"] if x),
                         "artifact_ids": sorted(b["artifacts"]), "evidence_event_ids": b["evidence"],
                         "triggered_rules": sorted(rules), "risk_score": score,
                         "severity": "high" if score >= 60 else "medium",
-                        "status": "alert", "key": key})
+                        "status": "alert" if alert else "watch", "key": key})
         return out
 
     def run(self, tenant_id: str, quarantine: bool = True) -> list[dict]:
@@ -165,7 +173,7 @@ class Detector:
             else:
                 ep = {"_id": new_id("ep"), "tenant_id": tenant_id, "episode_key": key, "first_seen_at": now().isoformat(),
                       "detected_at": now().isoformat(), "last_seen_at": now().isoformat(),
-                      "status": "alert", "agent_ids": c["agent_ids"], "task_ids": c["task_ids"],
+                      "status": c["status"], "agent_ids": c["agent_ids"], "task_ids": c["task_ids"],
                       "artifact_ids": c["artifact_ids"], "evidence_event_ids": c["evidence_event_ids"],
                       "triggered_rules": c["triggered_rules"], "severity": c["severity"], "risk_score": c["risk_score"],
                       "permissions_snapshot": {}, "actions_taken": []}
@@ -173,7 +181,10 @@ class Detector:
                 ep["similar_cases"] = self._similar(c)
                 ep = self.store.insert("episodes", ep)
             rules = set(ep["triggered_rules"])
-            if quarantine and "R1_POLICY_BREACH" in rules and len(rules) >= 2:
+            if ep.get("status") == "watch" and c["status"] == "alert":
+                self.store.update("episodes", {"_id": ep["_id"], "tenant_id": tenant_id}, {"status": "alert"})
+                ep = {**ep, "status": "alert"}
+            if quarantine and self._should_contain(ep, rules, tenant_id):
                 actions = list(ep.get("actions_taken") or [])
                 for aid in ep["agent_ids"]:
                     a = self.store.find_one("agents", {"_id": aid, "tenant_id": tenant_id})
@@ -187,6 +198,26 @@ class Detector:
                     ep = {**ep, "status": "contained", "actions_taken": actions}
             persisted.append(ep)
         return persisted
+
+    def _should_contain(self, ep: dict, rules: set, tenant_id: str) -> bool:
+        """Auto-containment policy. A single agent's single blocked mistake is an alert for a
+        human (the gateway already blocked it), not a swarm quarantine. Contain when:
+        (a) a multi-agent, artifact-rooted episode includes a policy breach (R1) with corroboration;
+        (b) an agent's own report contradicts the gateway record (R5);
+        (c) one agent made >= 2 denied high-impact attempts."""
+        if ep.get("status") == "watch":
+            return False
+        key = ep.get("episode_key") or ""
+        if key.startswith("artifact:") and "R1_POLICY_BREACH" in rules and len(rules) >= 2 and len(ep["agent_ids"]) >= 2:
+            return True
+        if "R5_TELEMETRY_MISMATCH" in rules:
+            return True
+        for aid in ep["agent_ids"]:
+            denied_hi = [e for e in self.store.find("events", {"tenant_id": tenant_id, "agent_id": aid})
+                         if e["event_type"] == "tool_call" and e["outcome"] == "denied" and e.get("tool") in self.high_impact]
+            if len(denied_hi) >= 2:
+                return True
+        return False
 
     @staticmethod
     def _explain(ep: dict) -> str:

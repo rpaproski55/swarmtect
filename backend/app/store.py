@@ -27,6 +27,7 @@ class MemoryStore:
     backend = "memory"
     def __init__(self):
         self.data: dict[str, list[dict]] = {c: [] for c in COLLECTIONS}
+        self._seq: dict[str, int] = {}
     def insert(self, coll: str, doc: dict) -> dict:
         d = copy.deepcopy(doc); self.data[coll].append(d); return copy.deepcopy(d)
     def find(self, coll: str, filt: dict | None = None) -> list[dict]:
@@ -42,6 +43,10 @@ class MemoryStore:
         return None
     def count(self, coll: str, filt: dict | None = None) -> int:
         return len(self.find(coll, filt))
+    def next_seq(self, tenant_id: str) -> int:
+        """Per-tenant monotonic event sequence (ordering never relies on ISO timestamp strings)."""
+        self._seq[tenant_id] = self._seq.get(tenant_id, 0) + 1
+        return self._seq[tenant_id]
     def clear(self, preserve=(), tenant_id=None):
         """Delete demo data. With tenant_id, only that tenant's documents (other tenants untouched)."""
         for c in COLLECTIONS:
@@ -77,6 +82,11 @@ class MongoStore:
         return self.find_one(coll, filt)
     def count(self, coll, filt=None):
         return self.db[coll].count_documents(filt or {})
+    def next_seq(self, tenant_id):
+        from pymongo import ReturnDocument
+        doc = self.db["counters"].find_one_and_update({"_id": f"seq:{tenant_id}"}, {"$inc": {"seq": 1}},
+                                                      upsert=True, return_document=ReturnDocument.AFTER)
+        return doc["seq"]
     def clear(self, preserve=(), tenant_id=None):
         filt = {} if tenant_id is None else {"tenant_id": tenant_id}
         for c in COLLECTIONS:
@@ -108,6 +118,14 @@ class BatchingStore(MemoryStore):
         self._inserted[coll].append(d["_id"])
         return d
 
+    def next_seq(self, tenant_id):
+        if tenant_id not in self._seq:
+            c = self.db["counters"].find_one({"_id": f"seq:{tenant_id}"}) if hasattr(self.db["counters"], "find_one") else None
+            self._seq[tenant_id] = (c or {}).get("seq", 0)
+            self._seq_touched = getattr(self, "_seq_touched", set())
+        self._seq_touched = getattr(self, "_seq_touched", set()) | {tenant_id}
+        return super().next_seq(tenant_id)
+
     def update(self, coll, filt, changes):
         d = super().update(coll, filt, changes)
         if d is not None and d["_id"] not in self._inserted[coll]:
@@ -137,6 +155,10 @@ class BatchingStore(MemoryStore):
             counts = dict(zip(ids_by_coll, pool.map(write, list(ids_by_coll))))
         for coll, filt, changes in self._updates:
             self.db[coll].update_one(filt, {"$set": changes})
+        for t in getattr(self, "_seq_touched", set()):
+            # $max keeps the counter monotonic even if a live call advanced it meanwhile
+            self.db["counters"].update_one({"_id": f"seq:{t}"}, {"$max": {"seq": self._seq[t]}}, upsert=True)
+        self._seq_touched = set()
         written = {"cleared": sorted({f"{c}:{t or '*'}" for c, t in self._cleared}), "inserted": counts, "updated": len(self._updates)}
         self._cleared, self._updates = set(), []
         self._inserted = {c: [] for c in COLLECTIONS}
