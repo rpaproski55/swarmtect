@@ -3,7 +3,7 @@
 Status (honest): `agent-engine-sdk-langgraph` and `langgraph` are optional deps.
 If they are not installed / no preview access, importing this module reports that
 exactly instead of pretending to be deployed. The monitored agent below, when
-langgraph IS available, makes its tool calls THROUGH the SwarmGuard gateway —
+langgraph IS available, makes its tool calls THROUGH the Swarmtect gateway —
 that is the integration point that matters for detection.
 """
 from __future__ import annotations

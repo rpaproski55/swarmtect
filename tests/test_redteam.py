@@ -1,4 +1,4 @@
-"""Red-team regression suite for SwarmGuard.
+"""Red-team regression suite for Swarmtect.
 
 Every test here encodes an attack or failure that WORKS against commit c05a400.
 They are expected to FAIL until the matching work item in

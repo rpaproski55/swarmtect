@@ -19,7 +19,7 @@ export default function App() {
   };
   return (
     <div style={{ background: "#0b0f14", color: "#e6edf3", fontFamily: "system-ui", padding: 24, minHeight: "100vh" }}>
-      <h1>SwarmGuard — coordination episode cockpit</h1>
+      <h1>Swarmtect — coordination episode cockpit</h1>
       <p>Backend: {metrics?.store_backend} · Events: {metrics?.events_processed} · Blocked before effect: {metrics?.blocked_before_effect} · Episodes: {metrics?.episodes_detected} · Quarantined: {metrics?.agents_quarantined}</p>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => run("S1")}>Run BENIGN collaboration (challenge)</button>

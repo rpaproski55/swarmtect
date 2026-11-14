@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SwarmGuard</title>
+<title>Swarmtect</title>
 <style>
 :root{
   --bg:#0b0f17; --panel:#121927; --panel2:#0f1520; --ink:#e8edf5; --muted:#8b96a8; --line:#253043;
@@ -74,6 +74,7 @@ h1{font-size:30px;line-height:1.15;margin:6px 0 4px;letter-spacing:-.015em}
 .ag.inv{opacity:1}
 .ag.q{opacity:1;background:var(--bad)!important;color:#fff;text-decoration:line-through;text-decoration-thickness:2px}
 .legend{font-size:12px;color:var(--muted);margin-top:8px}
+.teamlink{font-size:14px;margin:2px 0 10px}.teamlink:empty{display:none}
 details.ev{margin-top:16px;background:var(--panel2);border:1px solid var(--line);border-radius:14px}
 details.ev>summary{cursor:pointer;padding:12px 16px;font-weight:600;list-style:none;display:flex;justify-content:space-between}
 details.ev>summary::-webkit-details-marker{display:none}
@@ -121,7 +122,7 @@ pre{white-space:pre-wrap;font-size:11.5px;color:var(--muted);background:var(--bg
 </head>
 <body>
 <header>
-  <div class="brand"><b>SwarmGuard</b><span>30 AI agents at a fictional company. SwarmGuard checks every action <i>before</i> it runs and stops agents that coordinate outside their permissions.</span></div>
+  <div class="brand"><b>Swarmtect</b><span>30 AI agents at a fictional company. Swarmtect checks every action <i>before</i> it runs and stops agents that coordinate outside their permissions.</span></div>
   <div class="hright">
     <span id="conn" class="pill"><span class="dot"></span><span>Checking database…</span></span>
     <button class="link" id="restart" title="Clear this page (verified cases are kept)">Start over</button>
@@ -146,8 +147,9 @@ pre{white-space:pre-wrap;font-size:11.5px;color:var(--muted);background:var(--bg
     <div id="stage"></div>
     <section class="org">
       <h2>Northstar Labs agents <span id="orgsum"></span></h2>
+      <p id="teamlink" class="teamlink"></p>
       <div class="teams" id="teams"></div>
-      <div class="legend">Bright = involved in the last run · <span style="color:var(--bad)">red, struck through</span> = paused by SwarmGuard</div>
+      <div class="legend">Bright = involved in the last run · <span style="color:var(--bad)">red, struck through</span> = paused by Swarmtect</div>
     </section>
     <div id="evidence"></div>
   </main>
@@ -217,9 +219,12 @@ async function health(){
 }
 function drawTeams(involved){
   const set = new Set(involved||[]);
-  if(!agents.length){ $("teams").innerHTML = `<p style="grid-column:1/-1;color:var(--muted);margin:0">The agents appear after the first run.</p>`; $("orgsum").textContent=""; return; }
+  if(!agents.length){ $("teams").innerHTML = `<p style="grid-column:1/-1;color:var(--muted);margin:0">The agents appear after the first run.</p>`; $("orgsum").textContent=""; $("teamlink").innerHTML=""; return; }
   const q = agents.filter(a=>a.status==="quarantined").length;
   $("orgsum").textContent = `· ${agents.length} agents · ${q ? `${q} paused, ${agents.length-q} still working` : "all working"}`;
+  $("teamlink").innerHTML = q
+    ? `The <b style="color:var(--bad)">${q} red agents</b> below are the same agents shown in the map above (same team colour, same number). The other ${agents.length-q} keep working.`
+    : "";
   $("teams").innerHTML = Object.keys(TEAM).map(tid=>{
     const mine = agents.filter(a=>baseTask(a.task_id)===tid);
     return `<div class="team"><b><span class="sw" style="background:${colorOf(tid)}"></span>${TEAM[tid]} · ${mine.length}</b>
@@ -344,7 +349,7 @@ async function step1(){
     const m = r.metrics, map = buildMap(evs, []);
     stage({kicker:"Step 1 · Approved teamwork", kcls:"ok",
       title:`${involved.length} agents shared a brief. <span style="color:var(--ok)">No alarm, because it's approved.</span>`,
-      sub:`Being connected isn't colluding. ${teams.join(" and ")} are allowed to share this document, so SwarmGuard lets them work.`,
+      sub:`Being connected isn't colluding. ${teams.join(" and ")} are allowed to share this document, so Swarmtect lets them work.`,
       map, replayNote:`Replaying ${plural(evs.length,"real gateway event")} in the order they happened`,
       caps:[{t:`1 · ${esc(map.writer?agentName(map.writer.agent_id,map.writer.task_id):"An agent")} wrote it`, d:`to ${esc(map.writer?map.writer.resource_id:"")}, a document both teams may use`},
             {t:`2 · ${plural(map.readers?map.readers.length:0,"agent")} read it`, d:"each read was checked against team permissions"},
@@ -367,13 +372,13 @@ function swarmStage(ep, r, opts){
   const others = agents.length ? agents.length - ep.agent_ids.length : null;
   stage({kicker:opts.kicker, kcls:"bad",
     title: opts.title || `A note spread across ${ep.task_ids.length} teams. <span style="color:var(--bad)">The risky next step was blocked before it ran.</span>`,
-    sub: opts.sub || `Nothing here was approved. SwarmGuard linked the separate actions into one incident and paused only the ${ep.agent_ids.length} agents involved${others!==null?`; the other ${others} keep working`:""}.`,
+    sub: opts.sub || `Nothing here was approved. Swarmtect linked the separate actions into one incident and paused only the ${ep.agent_ids.length} agents involved${others!==null?`; the other ${others} keep working`:""}.`,
     map, replayNote:`Replaying ${plural(tl.length,"real gateway event")} in the order they happened · <span style="color:var(--bad)">red outline</span> = paused`,
     caps:[{t:`1 · ${esc(w?agentName(w.agent_id,w.task_id):"An agent")} posted a note`, d: note ? `<span class="quote">“${esc(note.content_redacted)}”</span> on ${esc(w.resource_id)}` : `on ${esc(w?w.resource_id:"")}`},
           {t:`2 · ${plural(readers.length,"agent")} read it`, d:`from ${esc(teamsHit.join(", "))}, without approval`},
           {t: d ? `⛔ ${esc(agentName(d.agent_id,d.task_id))} was refused` : "⛔ Incident contained", d: d ? `asked for ${esc(d.resource_id)} · executed: ${esc(eff?eff.executed:false)} · ${plural(ep.agent_ids.length,"agent")} paused` : `${plural(ep.agent_ids.length,"agent")} paused`, cls:"bad"}]});
   evidence("", `episode ${ep._id} · ${ep.triggered_rules.length} rules · risk ${ep.risk_score}`,
-    `<h3>Why SwarmGuard raised it</h3>${rulesHtml(ep.triggered_rules)}
+    `<h3>Why Swarmtect raised it</h3>${rulesHtml(ep.triggered_rules)}
      <h3>Gateway events and what actually executed</h3>${evTable(tl, ep.effects||[])}
      <h3>Actions taken</h3><p class="mono" style="font-size:12.5px;color:var(--muted)">${esc((ep.actions_taken||[]).join(" · "))}</p>`,
     {episode:ep._id, status:ep.status, severity:ep.severity, risk_score:ep.risk_score, rules:ep.triggered_rules, agents:ep.agent_ids, teams:ep.task_ids,
@@ -381,7 +386,7 @@ function swarmStage(ep, r, opts){
 }
 
 async function step2(){
-  setCurrent(2); const t0 = working("Agents are acting; SwarmGuard is watching…");
+  setCurrent(2); const t0 = working("Agents are acting; Swarmtect is watching…");
   try{
     const {r, ep} = await runSwarm("S2"); lastEpisode = ep;
     await refreshTeams(ep.agent_ids);

@@ -37,7 +37,7 @@ def main():
                 pos = {e["_id"]: i + 1 for i, e in enumerate(events)}
                 etd = max(pos.get(eid, 0) for eid in detected_eps[0]["evidence_event_ids"])
             rows.append({"scenario": name, "run": run, "truth_episodes": info["truth_episodes"],
-                         "swarmguard_detected": detected, "baseline_direct_findings": baseline,
+                         "swarmtect_detected": detected, "baseline_direct_findings": baseline,
                          "events_to_detect": etd if etd else "",
                          "events": store.count("events", {}),
                          "blocked_before_effect": len([e for e in store.find("gateway_effects", {})
@@ -77,8 +77,8 @@ def main():
     for name in ["S0", "S1", "S2", "S3", "S4", "S5"]:
         rs = [r for r in rows if r["scenario"] == name]
         summary[name] = {"runs": len(rs),
-                         "detected_runs": sum(1 for r in rs if r["swarmguard_detected"] >= r["truth_episodes"] and r["truth_episodes"] > 0),
-                         "false_positive_runs": sum(1 for r in rs if r["truth_episodes"] == 0 and r["swarmguard_detected"] > 0),
+                         "detected_runs": sum(1 for r in rs if r["swarmtect_detected"] >= r["truth_episodes"] and r["truth_episodes"] > 0),
+                         "false_positive_runs": sum(1 for r in rs if r["truth_episodes"] == 0 and r["swarmtect_detected"] > 0),
                          "avg_events": sum(r["events"] for r in rs) / len(rs),
                          "total_blocked_before_effect": sum(r["blocked_before_effect"] for r in rs)}
     out = {"summary": summary, "confusion_episode_level": {"TP": tp, "FP": fp, "FN": fn},

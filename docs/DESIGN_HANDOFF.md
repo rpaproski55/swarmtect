@@ -1,4 +1,4 @@
-# Design handoff: SwarmGuard demo interface
+# Design handoff: Swarmtect demo interface
 
 For the session that redesigns the demo UI. The backend is done and verified on Atlas; this work is **frontend only**.
 

@@ -17,7 +17,7 @@ def _secret() -> bytes:
     global _warned
     s = os.environ.get("AGENT_KEY_SECRET", DEV_DEFAULT)
     if s == DEV_DEFAULT and not _warned:
-        logging.getLogger("swarmguard").warning("AGENT_KEY_SECRET not set: using the dev default (demo only)")
+        logging.getLogger("swarmtect").warning("AGENT_KEY_SECRET not set: using the dev default (demo only)")
         _warned = True
     return s.encode()
 

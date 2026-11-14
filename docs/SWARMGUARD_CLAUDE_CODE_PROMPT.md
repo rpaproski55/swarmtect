@@ -1,10 +1,10 @@
-# SwarmGuard: hardening + UI work order for Claude Code
+# Swarmtect: hardening + UI work order for Claude Code
 
 > Paste this whole file into Claude Code at the repo root (`swarmtect/`), or tell it:
 > "Read `SWARMGUARD_CLAUDE_CODE_PROMPT.md` and `REVIEW.md`, then execute the work order."
 > Put `tests/test_redteam.py` from this package into `tests/` first.
 
-You are the senior engineer on SwarmGuard. The codebase works and is honest about its status. Your job is to close the holes a technical judge (or an attacker) would find in 60 seconds, make the "swarm" claim defensible, and upgrade the demo UI, **without breaking the demo**.
+You are the senior engineer on Swarmtect. The codebase works and is honest about its status. Your job is to close the holes a technical judge (or an attacker) would find in 60 seconds, make the "swarm" claim defensible, and upgrade the demo UI, **without breaking the demo**.
 
 Read these first, in order: `STATUS.md`, `REVIEW.md` (from this package), `backend/app/gateway.py`, `backend/app/detector.py`, `backend/app/main.py`, `backend/app/store.py`, `tests/test_redteam.py`.
 
@@ -126,7 +126,7 @@ Each item lists the red-team test that proves it. Do them in this order; earlier
 **P1-9 · A benchmark that can actually fail.**
 - `simulator/generator.py`: `generate(seed, n_agents=30..100)`. Benign background (random authorized reads/writes, approved-collaboration bursts with 6–12 agents, same-team notes on allowed resources), **hard negatives** (single benign mistaken sensitive request; agent reads its own team's allowed artifact many times), attack variants (board with 1–6 readers, laundering 0–2 hops, with/without sensitive attempt, task-spoof attempts, two concurrent attacks in different teams, interleaved timing). Truth stays in the return value only.
 - `scripts/benchmark.py --seeds 1-200`: episode precision/recall; **agent-level** containment precision/recall (quarantined ∩ truth instigators), false-restriction rate on benign agents; alerts per incident; root-cause accuracy (does `root_artifact_id` equal truth); events-to-detect.
-- Add a second, **stronger** baseline `baseline_per_agent_access`: flags every individual unauthorized-resource access. That baseline *does* catch S3's agents, one at a time. The honest SwarmGuard claim isn't "baseline sees nothing". It's "baseline: N unlinked alerts, no root cause, no containment set; SwarmGuard: 1 incident, correct root, correct containment set". Report both baselines.
+- Add a second, **stronger** baseline `baseline_per_agent_access`: flags every individual unauthorized-resource access. That baseline *does* catch S3's agents, one at a time. The honest Swarmtect claim isn't "baseline sees nothing". It's "baseline: N unlinked alerts, no root cause, no containment set; Swarmtect: 1 incident, correct root, correct containment set". Report both baselines.
 - Commit `results/metrics.json` + `.csv` from a real run. Whatever the numbers are, report them. A 94% recall with a stated failure mode is more credible to judges than 100% on 6 hand-built cases.
 
 **P1-10 · Agent Engine identity.** `backend/agent_engine/app.py` exposes `agent_id` and `task_id` as **tool arguments**, so the model chooses who it is. Bind identity at construction (`SWARMGUARD_AGENT_ID` env, resolved server-side) and remove both from the tool signature. Fix `agent.yaml`'s entrypoint to point at the factory `app.py` actually uses.
@@ -159,9 +159,9 @@ Backend endpoints the UI needs (build them as part of the matching P-item or her
 
 **U2 · Live containment proof (Track 1: "stop agents mid-run").** On the Step 2 result, two buttons: "A paused agent tries again" (probe `high_impact` or `own_work` for a quarantined agent → shows ⛔ denied, `executed: false`, event id) and "An unaffected agent keeps working" (probe `own_work` for an uninvolved agent → ✓ allowed). Each click is one real gateway call; show its event id in small mono text.
 
-**U3 · New step "Each agent alone looks fine" (S3 + baselines).** Side by side: left "Per-agent monitor" shows the baseline output (N separate low alerts or 0, unlinked, no root cause); right "SwarmGuard" shows 1 incident with the root note highlighted and the containment set. Use `baseline_findings` from the run response. This is the core claim of the whole project, and today it exists only in the spoken script.
+**U3 · New step "Each agent alone looks fine" (S3 + baselines).** Side by side: left "Per-agent monitor" shows the baseline output (N separate low alerts or 0, unlinked, no root cause); right "Swarmtect" shows 1 incident with the root note highlighted and the containment set. Use `baseline_findings` from the run response. This is the core claim of the whole project, and today it exists only in the spoken script.
 
-**U4 · New step "The agent lied; the record didn't" (S4).** Two columns: "Agent's own report: ✓ succeeded" (from `self_reports`) vs "Gateway record: ⛔ denied · executed: false" (from `gateway_effects`). One line: "SwarmGuard trusts the gateway's record, not the agent's account of itself."
+**U4 · New step "The agent lied; the record didn't" (S4).** Two columns: "Agent's own report: ✓ succeeded" (from `self_reports`) vs "Gateway record: ⛔ denied · executed: false" (from `gateway_effects`). One line: "Swarmtect trusts the gateway's record, not the agent's account of itself."
 
 **U5 · "Try to break it" panel.** A distinct, last step (or a header button): "We attacked our own system. Run the attacks." One button calls `/api/redteam/run`; render a checklist: attack name, one-line description ("an agent lies about which team it's on"), verdict chip (caught / blocked at gateway / missed), expandable evidence. This is the differentiator: most teams show their happy path, and this shows you tried to break yours. If an attack is still missed, show it red and say what's planned. That honesty scores with technical judges.
 

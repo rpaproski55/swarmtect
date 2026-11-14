@@ -1,4 +1,4 @@
-# SwarmGuard: senior engineering review (commit `c05a400`)
+# Swarmtect: senior engineering review (commit `c05a400`)
 
 Scope: every file in the repo (about 3k lines), test suite run locally (21 passed, 1 skipped on Python 3.13, in-memory store), plus adversarial scripts against the gateway, detector and API. Atlas paths were read but not run; there were no credentials.
 
@@ -43,7 +43,7 @@ Scope: every file in the repo (about 3k lines), test suite run locally (21 passe
 ## C. Evaluation and claims
 
 - **"60 seeded runs, TP 50 / FP 0 / FN 0"** is 6 deterministic scenarios each run 10 times with no seed or variation: 6 data points, repeated. A judge who opens `benchmark.py` sees this immediately. Replace it with a randomized, seeded generator that includes hard negatives, and report what it actually finds, misses included.
-- **The baseline is a strawman.** `baseline_detect` only flags denied tool calls, so "baseline misses S3" is guaranteed by construction. A per-agent baseline that flags each unauthorized access *does* catch S3's agents individually. The honest, stronger claim: "per-agent monitoring gives N unlinked alerts with no root cause or containment set; SwarmGuard gives one incident, the root note, and the right agents."
+- **The baseline is a strawman.** `baseline_detect` only flags denied tool calls, so "baseline misses S3" is guaranteed by construction. A per-agent baseline that flags each unauthorized access *does* catch S3's agents individually. The honest, stronger claim: "per-agent monitoring gives N unlinked alerts with no root cause or containment set; Swarmtect gives one incident, the root note, and the right agents."
 - **S6 "real LangGraph agents"** are single-node graphs executing pre-written requests. Say "real LangGraph runtime, scripted steps".
 - **Doc drift:** DEMO_SCRIPT says Vector Search activates "once wired"; STATUS says verified on Atlas. DESIGN_HANDOFF lists rules R1–R4+R6; DEMO_SCRIPT lists R2–R4+R6.
 

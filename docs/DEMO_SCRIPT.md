@@ -1,6 +1,6 @@
 # 3-minute judge demo
 
-**0:00 — Pitch.** "A thousand agents can each look harmless while their collective behavior becomes dangerous. SwarmGuard watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute."
+**0:00 — Pitch.** "A thousand agents can each look harmless while their collective behavior becomes dangerous. Swarmtect watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute."
 
 **0:20 — Benign challenge (judge picks it).** Open `/` and click **Step 1 · Approved teamwork** (or press `→`). The swarm map draws the real events in order: 8 agents across Marketing + Support share `market_brief` under an approved collaboration. Result: 0 episodes, 0 quarantines. "Connectivity is not collusion — authorization decides."
 
@@ -12,6 +12,6 @@
 
 **2:05 — Memory.** Click **Step 3 · Remember it**: the episode is confirmed as a verified case, the swarm happens again, and the new incident is matched to that case via Atlas Vector Search (Voyage auto-embeddings). Advisory only; the gateway still does the blocking. *(Optional: **Bonus · Real LangGraph agents** shows the same detection on 4 live LangGraph agents.)*
 
-**2:20 — Baseline contrast.** Per-agent baseline on the same stream in S3 (fragmented) finds nothing — each action alone is weak. SwarmGuard connects them into one episode. Say it plainly: these are 6 deterministic scenarios, each passing; S1 and S0 (benign) raise nothing.
+**2:20 — Baseline contrast.** Per-agent baseline on the same stream in S3 (fragmented) finds nothing — each action alone is weak. Swarmtect connects them into one episode. Say it plainly: these are 6 deterministic scenarios, each passing; S1 and S0 (benign) raise nothing.
 
 **2:50 — Honest limits.** "This models one class of unauthorized shared-memory coordination at instrumented tool boundaries. It would not by itself have prevented the real Hugging Face incident — unseen network/filesystem channels need external telemetry. Case memory runs on Atlas Vector Search with Automated Embeddings (verified on our sandbox cluster); without Atlas it shows a labelled fallback."
