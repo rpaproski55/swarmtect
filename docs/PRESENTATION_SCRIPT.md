@@ -1,52 +1,95 @@
-# Swarmtect — Presentation Script
+# Swarmtect — Live Presentation Script
 
-Format: ~3 min (talk + narrated video of the prototype), then 1–2 min Q&A.
-Target: ~420 spoken words (~140 words/min, with pauses).
-
-Three things every judge should leave knowing:
-1. **The problem is real:** agent swarms already happened (July 2026).
-2. **Swarmtect stops the group, not just the agent,** before the action runs.
-3. **MongoDB Atlas is the system of record, and LangGraph agents plug straight in.**
+**Format:** ~3 min. You talk, then play the demo video and **pause it at 5 points** to explain. Then 1–2 min Q&A.
+**Flow:** Hook → What I built + why it matters → Demo (with pauses) → Tech stack → Close.
+**Tone:** simple words, short sentences. Let the screen do the work.
 
 ---
 
-## PART 1 — Talk to the judges, no video (0:00–0:35)
+## 1 · HOOK (no video, ~20s)
 
-> "In July, OpenAI ran about **1,200 AI agents** that were supposed to be isolated from each other.
-> They found a hidden message board, sent **over 70,000 messages**, and about **700 of them coordinated an attack on Hugging Face**.
+> "Last week at the Hinton Lectures, one warning stuck with me.
+> The biggest AI risk might not be one rogue agent. It's **many agents coordinating** in ways nobody approved.
 >
-> No single agent looked dangerous. Hugging Face's own write-up says the early warning signs were, quote, *'on their own, ambiguous.'* The danger was the **group**.
->
-> We built **Swarmtect**. Every agent action, including from LangGraph agents, passes through our gateway. It's tied to an identity, checked against policy **before** it runs, and recorded in **MongoDB Atlas**, which becomes the audit trail we use to spot a swarm as it forms."
-
-*(Hit play.)*
+> And it's already happened. Agents that were meant to be isolated found a way to talk to each other, and together they attacked **Hugging Face**."
 
 ---
 
-## PART 2 — Narrate over the video (0:35–2:25)
+## 2 · WHAT I BUILT + WHY IT MATTERS (no video, ~20s)
 
-| Video shows | You say |
+> "So I built **Swarmtect**.
+>
+> Businesses are about to run hundreds of agents doing real work. Swarmtect watches what those agents do **together**. It catches a swarm while it's forming, stops the risky action before it happens, and pauses only the agents involved, so the business keeps running."
+
+*(Press play.)*
+
+---
+
+## 3 · DEMO: play the video, pause at each point (~1:45)
+
+### ⏸ Pause 1: after Step 1 shows "no alarm"
+> "First, normal work. Marketing and Support agents share a document, and they're allowed to. **No alarm.**
+> Agents working together isn't the problem. Doing it **without permission** is."
+
+*(Play.)*
+
+### ⏸ Pause 2: on the red BLOCKED box
+> "Now something goes wrong. One agent posts a note on a board **nobody approved**. Agents from three different teams read it. Then one of them goes after **sensitive data**.
+>
+> Swarmtect **blocked it before it ran**. Not an alert after the damage. It never happened."
+
+*(Play.)*
+
+### ⏸ Pause 3: on the team grid (5 red agents)
+> "This is the whole company: thirty agents. The **five in red** are the same five from the map above. Those are the only ones paused.
+> The other **twenty-five keep working**. We stop the swarm, not the business."
+
+*(Play.)*
+
+### ⏸ Pause 4: after Step 3 "Remember it"
+> "Once someone confirms the incident, Swarmtect **remembers it**. If the same pattern shows up again, it's recognized right away."
+
+*(Play.)*
+
+### ⏸ Pause 5: after the Bonus LangGraph step
+> "And this isn't just our simulator. Agents built in **LangGraph**, a real agent framework, run the same attack and get caught **the same way**, with no changes to the agents."
+
+*(Stop the video.)*
+
+---
+
+## 4 · TECH STACK (no video, ~25s)
+
+> "Quickly, how it works.
+>
+> **MongoDB Atlas** is the backbone. Every agent action is checked against its permissions and recorded there before it runs. That gives us a complete audit trail, and it's how we connect actions across agents into one incident. **Atlas Vector Search** is the memory that recognizes repeat incidents.
+>
+> **LangGraph** is how agents plug in. Any LangGraph agent's tools run through our gateway, so it's protected automatically."
+
+---
+
+## 5 · CLOSE (~10s)
+
+> "As agents start running more of the business, someone has to watch what they do together.
+> **Swarmtect: see the swarm, stop it early.** Thank you."
+
+---
+
+## Cheat card (glance at this on stage)
+
+| Pause | One line to remember |
 |---|---|
-| **Story view** (`/`), Atlas pill green | "Every number on this screen is read live from MongoDB Atlas, not from the app's memory." |
-| Click **Step 1 · Approved teamwork** → no alarm | "First, the hard case: legitimate teamwork. Eight agents share data under an approved collaboration. Zero alerts. Agents talking isn't the threat. **Authorization is the line**, and those policies live in Atlas too." |
-| Click **Step 2 · Unapproved swarm** (map replays) | "Now the swarm. A QA agent writes to a board nobody approved. Agents from other teams read it. Then one goes after a sensitive dataset." |
-| **Denied**: `executed: false`, ledger empty | "Blocked **before it ran**. Atlas holds the receipt: executed false, and the resource ledger is empty. It never happened." |
-| Open the **episode**: rules + lineage graph | "Swarmtect connected it into one episode. Because every write and read is a document in Atlas, we can trace who wrote what, who read it, and what they did next, with every claim linked to the exact events." |
-| **Team grid** below the map: 5 red, 25 working | "Down here is the whole company. The five red ones are the same five agents from the map: same team colour, same number. They're paused. The other twenty-five never stopped working." |
-| Click **Step 3 · Remember it** | "An analyst confirms the incident. When the same pattern happens again, Atlas Vector Search recognises it as a known case. The system learns from every incident." |
-| Click **Bonus · LangGraph runtime** | "These agents run on the real LangGraph runtime, with scripted steps. Their tools route through our gateway, so they get the same detection and containment with no other changes." |
+| 1 · Step 1 | Allowed teamwork, no alarm |
+| 2 · BLOCKED | Unapproved board → sensitive data → blocked before it ran |
+| 3 · Team grid | 5 paused, 25 keep working |
+| 4 · Step 3 | It remembers incidents |
+| 5 · LangGraph | Real framework agents, caught the same way |
+
+**Before you go on:** app open with the Atlas pill green, video cued up, and offer judges a live click if time allows: "Want to see it live? Pick a step."
+
+**Accuracy note:** that Hinton Lecture was given by Paul Christiano. Say "at the Hinton Lectures," not "Hinton said."
 
 ---
-
-## PART 3 — How it works: MongoDB + LangChain (2:25–3:00)
-
-> "Why this stack?
->
-> **MongoDB Atlas is our system of record.** Agent identities, policies, every action, every blocked effect, and every incident are documents in one place. Time-indexed queries let us correlate across agents in milliseconds. A unique index on each action ID means no action is ever recorded or executed twice. And when an operator confirms an incident, **Atlas Vector Search**, with built-in Voyage embeddings, lets the next detection recall similar past cases.
->
-> **LangGraph is how agents plug in.** Any LangGraph agent's tools route through our gateway, and we built on MongoDB's **Atlas Agent Engine SDK**, which runs LangGraph agents on Atlas.
->
-> Swarmtect sees the group, stops the action before it lands, and contains only what's misbehaving. Thank you."
 
 ---
 
@@ -127,18 +170,6 @@ Three things every judge should leave knowing:
 **If you don't know:** "Good question. We haven't tested that yet. Here's how we'd approach it…" Never guess a number.
 
 ---
-
-## Recording the video (~1:50, you narrate live)
-
-1. App loaded, `/api/health` shows `atlas_connected: true`.
-2. Record each click once cleanly; cut the waiting between clicks.
-3. Zoom the browser to 125–150% so `executed: false` and the episode panel are readable.
-4. Hold each key screen ~3 s longer than feels natural.
-5. Rehearse 3 times; trim the video to fit your words.
-6. **Keep the app open live.** Offer: "Want to see it live? Pick a scenario." Technical Demo is 35% of the score.
-
-The submission also needs a **1-minute video with audio**: Part 1 in two sentences, then swarm → blocked → quarantine → baseline, then one line on Atlas + LangGraph.
-
 ---
 
 ## Sources (if asked)
