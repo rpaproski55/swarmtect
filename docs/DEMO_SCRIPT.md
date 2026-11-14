@@ -12,6 +12,6 @@
 
 **2:05 — Memory.** Click **Step 3 · Remember it**: the episode is confirmed as a verified case, the swarm happens again, and the new incident is matched to that case via Atlas Vector Search (Voyage auto-embeddings). Advisory only; the gateway still does the blocking. *(Optional: **Bonus · Real LangGraph agents** shows the same detection on 4 live LangGraph agents.)*
 
-**2:20 — Baseline contrast.** Per-agent baseline on the same stream in S3 (fragmented) finds nothing — each action alone is weak. SwarmGuard connects them into one episode. Show `results/metrics.json`: 10/10 seeded detections, 0 false positives on benign runs.
+**2:20 — Baseline contrast.** Per-agent baseline on the same stream in S3 (fragmented) finds nothing — each action alone is weak. SwarmGuard connects them into one episode. Say it plainly: these are 6 deterministic scenarios, each passing; S1 and S0 (benign) raise nothing.
 
-**2:50 — Honest limits.** "This models one class of unauthorized shared-memory coordination at instrumented tool boundaries. It would not by itself have prevented the real Hugging Face incident — unseen network/filesystem channels need external telemetry. Atlas Vector Search case memory activates once the Atlas URI + embedding key are wired; until then it's a labelled fallback, and STATUS.md says so."
+**2:50 — Honest limits.** "This models one class of unauthorized shared-memory coordination at instrumented tool boundaries. It would not by itself have prevented the real Hugging Face incident — unseen network/filesystem channels need external telemetry. Case memory runs on Atlas Vector Search with Automated Embeddings (verified on our sandbox cluster); without Atlas it shows a labelled fallback."

@@ -429,12 +429,12 @@ async function step3(){
 }
 
 async function step4(){
-  setCurrent(4); const t0 = working("Running 4 real LangGraph agents through the gateway…");
+  setCurrent(4); const t0 = working("Running the LangGraph runtime (scripted steps) through the gateway…");
   try{
     const {r, ep} = await runSwarm("S6"); lastEpisode = ep;
     await refreshTeams(ep.agent_ids);
-    swarmStage(ep, r, {kicker:`Bonus · ${r.langgraph_agents||4} real LangGraph agents`,
-      sub:`These are real LangGraph agents calling tools, not a script. Same gateway, same detection: ${plural(ep.agent_ids.length,"agent")} paused, ${ep.triggered_rules.length} rules triggered.`});
+    swarmStage(ep, r, {kicker:`Bonus · ${r.langgraph_agents||4} LangGraph agents (real runtime, scripted steps)`,
+      sub:`Real LangGraph runtime executing scripted task steps, calling the same tools. Same gateway, same detection: ${plural(ep.agent_ids.length,"agent")} paused, ${ep.triggered_rules.length} rules triggered.`});
     drawTeams(ep.agent_ids);
     setStep(4, "bad", `⛔ Blocked · ${ep.agent_ids.length} paused`);
     done(`Done in ${((performance.now()-t0)/1000).toFixed(1)}s.`);

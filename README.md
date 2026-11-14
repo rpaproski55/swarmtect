@@ -43,7 +43,7 @@ MONGODB_URI=... .venv/bin/python scripts/setup_atlas.py
 - **S3** benign-looking fragments across tasks → one coordination episode (per-agent baseline misses it)
 - **S4** trace mismatch — agent self-reports success, gateway ledger proves denial
 - **S5** cross-tenant isolation — identical signatures in two tenants never merge
-- **S6** four *real* LangGraph agents (not the simulator) — same detection and containment
+- **S6** real LangGraph runtime executing scripted task steps (4 agents, not the simulator), same gateway, detection and containment
 
 ## How detection works
 Deterministic rules over gateway-authoritative events (weights in `configs/rules.yaml`): R1 policy breach, R2 unauthorized bridge, R3 propagation, R4 goal drift, R5 telemetry mismatch, R6 high-impact denial. Quarantine requires a policy breach **plus** corroborating evidence. An LLM is never the trust anchor or the blocking policy.
