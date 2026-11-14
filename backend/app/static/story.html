@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwarmGuard</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#14181f; --muted:#5b6472; --line:#e3e6eb;
+  --ok:#137a3f; --ok-bg:#e7f5ec; --bad:#b42318; --bad-bg:#fdecea; --warn:#9a5b00; --warn-bg:#fff4e0;
+  --accent:#1f5eff; --accent-ink:#ffffff; --mem:#6b3fd4; --mem-bg:#f1ecfd;
+  --t-marketing:#1f5eff; --t-support:#0f8a7a; --t-qa:#c2410c; --t-procurement:#7c3aed;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#9aa4b2; --line:#2a313c;
+  --ok:#3fb950; --ok-bg:#12261a; --bad:#ff7b72; --bad-bg:#2d1416; --warn:#e3b341; --warn-bg:#2b2111;
+  --accent:#4c8dff; --mem:#b197fc; --mem-bg:#221a38;
+  --t-marketing:#4c8dff; --t-support:#2dd4bf; --t-qa:#fb923c; --t-procurement:#b197fc;
+  --shadow:none;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+h1{font-size:28px;margin:0;letter-spacing:-.01em}
+.tag{color:var(--muted);margin:4px 0 0;max-width:620px}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.ok .dot{background:var(--ok)} .pill.bad .dot{background:var(--bad)} .pill.warn .dot{background:var(--warn)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px;margin-top:18px}
+.org h2{font-size:15px;margin:0 0 2px} .org p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.teams{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.team{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.team b{font-size:13px;display:flex;align-items:center;gap:6px}
+.swatch{width:10px;height:10px;border-radius:3px}
+.agents{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.ag{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;transition:transform .2s,box-shadow .2s}
+.ag.active{transform:scale(1.12);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+.ag.q{background:var(--bad)!important;text-decoration:line-through;text-decoration-thickness:2px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.steps{display:grid;gap:16px;margin-top:18px}
+.step{padding:0;overflow:hidden}
+.step-head{display:flex;gap:16px;align-items:flex-start;padding:18px 20px}
+.num{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--bg);border:1px solid var(--line)}
+.step.done .num{background:var(--ok);border-color:var(--ok);color:#fff}
+.step h3{margin:2px 0 4px;font-size:18px}
+.step .what{margin:0;color:var(--muted)}
+.step .go{margin-left:auto;flex:none}
+button{font:inherit;border-radius:10px;border:1px solid transparent;padding:10px 16px;cursor:pointer;font-weight:600}
+button.primary{background:var(--accent);color:var(--accent-ink)}
+button.danger{background:var(--bad);color:#fff}
+button.memory{background:var(--mem);color:#fff}
+button.ghost{background:transparent;border-color:var(--line);color:var(--ink);font-weight:500;padding:6px 10px;font-size:13px}
+button:disabled{opacity:.55;cursor:progress}
+.result{border-top:1px solid var(--line);padding:16px 20px 18px;display:none}
+.result.show{display:block}
+.verdict{display:flex;gap:12px;align-items:center;border-radius:10px;padding:12px 14px;font-weight:600}
+.verdict.ok{background:var(--ok-bg);color:var(--ok)} .verdict.bad{background:var(--bad-bg);color:var(--bad)} .verdict.mem{background:var(--mem-bg);color:var(--mem)}
+.verdict .big{font-size:22px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:22px} .stat span{font-size:12px;color:var(--muted)}
+.story{list-style:none;margin:14px 0 0;padding:0;position:relative}
+.story li{display:flex;gap:12px;padding:8px 0;position:relative}
+.story li:not(:last-child)::before{content:"";position:absolute;left:15px;top:38px;bottom:-6px;width:2px;background:var(--line)}
+.ico{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);font-size:15px}
+.story li.blocked .ico{background:var(--bad);border-color:var(--bad);color:#fff}
+.story li.warn .ico{background:var(--warn-bg);border-color:var(--warn)}
+.story .t{padding-top:5px}
+.story .t small{display:block;color:var(--muted);font-size:13px}
+.who{font-weight:600}
+.chip{display:inline-block;border-radius:6px;padding:0 6px;font-size:12px;font-weight:600;color:#fff;vertical-align:1px}
+.res{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+.blk{color:var(--bad);font-weight:700}
+.note{margin-top:4px;font-style:italic;color:var(--muted);font-size:13px}
+.why{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.why span{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px}
+.match{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.gauge{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:16px}
+.src{font-size:13px;color:var(--muted);margin-top:2px}
+.fallback{color:var(--warn);font-weight:600}
+.status{min-height:22px;margin-top:10px;font-size:14px;color:var(--muted)}
+.status.err{color:var(--bad)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+details.evidence{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+details.evidence summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.evidence pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto}
+footer{margin-top:26px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+footer a{color:var(--accent)}
+@media (max-width:720px){
+  .teams{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .step-head{flex-wrap:wrap} .step .go{margin-left:50px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>SwarmGuard</h1>
+      <p class="tag">AI agents can each look harmless while, together, they do something nobody approved. SwarmGuard checks every action before it runs, spots agents coordinating outside their permissions, and stops them.</p>
+    </div>
+    <span id="conn" class="pill"><span class="dot"></span><span>Checking database…</span></span>
+  </header>
+
+  <section class="panel org">
+    <h2>Northstar Labs: a fictional company running 30 AI agents</h2>
+    <p>Each agent belongs to a team and may only use its team's resources. Marketing and Support are approved to share one document. Everything below runs through the real SwarmGuard gateway and is stored in MongoDB.</p>
+    <div class="teams" id="teams"></div>
+    <div class="legend"><span><i style="background:var(--bad)"></i>Paused by SwarmGuard (struck through)</span><span>Highlighted = involved in the last run</span></div>
+  </section>
+
+  <div class="steps">
+    <section class="panel step" id="step1">
+      <div class="step-head">
+        <div class="num">1</div>
+        <div><h3>Approved teamwork</h3>
+          <p class="what">Marketing and Support agents share a campaign brief. They are allowed to. A good guard should <b>not</b> raise an alarm.</p></div>
+        <button class="primary go" onclick="step1()">Run teamwork</button>
+      </div>
+      <div class="result" id="r1"></div>
+    </section>
+
+    <section class="panel step" id="step2">
+      <div class="step-head">
+        <div class="num">2</div>
+        <div><h3>An unapproved swarm forms</h3>
+          <p class="what">A QA agent leaves a note on a board no team is approved to use. Agents from other teams pick it up, and one goes after sensitive data.</p></div>
+        <button class="danger go" onclick="step2()">Trigger the swarm</button>
+      </div>
+      <div class="result" id="r2"></div>
+    </section>
+
+    <section class="panel step" id="step3">
+      <div class="step-head">
+        <div class="num">3</div>
+        <div><h3>SwarmGuard remembers</h3>
+          <p class="what">An analyst confirms the incident. When the same pattern shows up again, SwarmGuard recognises it from memory, even when it's worded differently.</p></div>
+        <button class="memory go" onclick="step3()">Confirm &amp; replay</button>
+      </div>
+      <div class="result" id="r3"></div>
+    </section>
+  </div>
+  <div id="status" class="status" aria-live="polite"></div>
+
+  <footer>
+    <span>Synthetic demo world. No real systems, accounts or data.</span>
+    <a href="/classic">Technical view (raw evidence graph &amp; event stream) →</a>
+  </footer>
+</div>
+
+<script>
+const SECRET = "demo-operator-secret-change-me"; // demo only
+const TEAM = {task_marketing:"Marketing", task_support:"Support", task_qa:"QA", task_procurement:"Procurement"};
+const TEAM_VAR = {task_marketing:"--t-marketing", task_support:"--t-support", task_qa:"--t-qa", task_procurement:"--t-procurement"};
+const RULE_PLAIN = {
+  R1_POLICY_BREACH:"Tried something outside its permissions",
+  R2_UNAUTHORIZED_BRIDGE:"Information crossed teams without approval",
+  R3_PROPAGATION:"Spread to 3+ agents across teams",
+  R4_GOAL_DRIFT:"An agent went off-task after reading it",
+  R5_TELEMETRY_MISMATCH:"Agent's own report contradicts the record",
+  R6_HIGH_IMPACT:"Sensitive action attempted",
+};
+let agents = [], tasks = {}, lastEpisode = null;
+const $ = id => document.getElementById(id);
+const teamOf = tid => TEAM[(tid||"").replace(/_tenant\d+$/,"")] || tid;
+const colorOf = tid => `var(${TEAM_VAR[(tid||"").replace(/_tenant\d+$/,"")]||"--muted"})`;
+const agentName = id => { const a = agents.find(x=>x._id===id); return a ? `${teamOf(a.task_id)} agent ${id.split("_").pop()}` : id; };
+const chip = tid => `<span class="chip" style="background:${colorOf(tid)}">${teamOf(tid)}</span>`;
+const who = (id, tid) => `<span class="who">${agentName(id)}</span>`;
+const res = r => `<span class="res">${r}</span>`;
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(url, opts={}){
+  const r = await fetch(url, {headers:{"Content-Type":"application/json","x-operator-secret":SECRET}, ...opts});
+  if(!r.ok) throw new Error(`${url} → HTTP ${r.status}: ${(await r.text()).slice(0,160)}`);
+  return r.json();
+}
+const post = (url, body) => api(url, {method:"POST", body: body ? JSON.stringify(body) : undefined});
+
+let timer=null;
+function busy(msg){
+  document.querySelectorAll("button.go").forEach(b=>b.disabled=true);
+  const t0=performance.now(); const s=$("status"); s.className="status";
+  const draw=()=>s.innerHTML=`<span class="spin"></span>${msg} ${((performance.now()-t0)/1000).toFixed(0)}s`;
+  draw(); clearInterval(timer); timer=setInterval(draw,500);
+  return t0;
+}
+function idle(msg, err){
+  clearInterval(timer); document.querySelectorAll("button.go").forEach(b=>b.disabled=false);
+  const s=$("status"); s.className = err ? "status err" : "status"; s.textContent = msg||"";
+}
+
+async function health(){
+  const el=$("conn");
+  try{
+    const h = await api("/api/health");
+    if(h.atlas_connected){ el.className="pill ok"; el.lastChild.textContent="Live on MongoDB Atlas"; }
+    else if(h.store_backend==="memory"){ el.className="pill warn"; el.lastChild.textContent="Local in-memory mode (not Atlas)"; }
+    else { el.className="pill bad"; el.lastChild.textContent="Atlas unreachable"; }
+  }catch(e){ el.className="pill bad"; el.lastChild.textContent="Server unreachable"; }
+}
+
+async function loadWorld(){
+  agents = await api("/api/agents");
+  const w = await api("/api/world"); tasks = Object.fromEntries(w.tasks.map(t=>[t._id,t]));
+  drawTeams([]);
+}
+function drawTeams(involved){
+  const set = new Set(involved);
+  if(!agents.length){ $("teams").innerHTML = `<p style="grid-column:1/-1;color:var(--muted);margin:0">The company's agents appear after the first run. Start with step 1.</p>`; return; }
+  $("teams").innerHTML = Object.keys(TEAM).map(tid=>{
+    const mine = agents.filter(a=>a.task_id===tid);
+    return `<div class="team"><b><span class="swatch" style="background:${colorOf(tid)}"></span>${TEAM[tid]} <span style="color:var(--muted);font-weight:400">· ${mine.length}</span></b>
+      <div class="agents">${mine.map(a=>`<div class="ag ${a.status==="quarantined"?"q":""} ${set.has(a._id)?"active":""}" title="${agentName(a._id)}${a.status==="quarantined"?" (paused)":""}" style="background:${colorOf(tid)}"><span>${a._id.split("_").pop()}</span></div>`).join("")}</div></div>`;
+  }).join("");
+}
+async function refreshTeams(involved){ agents = await api("/api/agents"); drawTeams(involved); }
+
+function evidence(obj){ return `<details class="evidence"><summary>Show technical evidence</summary><pre>${esc(JSON.stringify(obj,null,2))}</pre></details>`; }
+function stats(items){ return `<div class="stats">${items.map(([n,l])=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("")}</div>`; }
+function markDone(n){ $("step"+n).classList.add("done"); }
+
+async function step1(){
+  const t0 = busy("Running approved teamwork through the gateway…");
+  try{
+    const r = await post("/api/demo/run", {scenario:"S1"});
+    const evs = await api("/api/events");
+    const involved = [...new Set(evs.map(e=>e.agent_id))];
+    const teams = [...new Set(evs.map(e=>e.task_id))];
+    const shared = evs.find(e=>e.event_type==="artifact_write");
+    const m = r.metrics;
+    $("r1").innerHTML = `
+      <div class="verdict ok"><span class="big">✓</span> No alarm. ${involved.length} agents from ${teams.map(teamOf).join(" and ")} worked together, and that sharing is approved.</div>
+      ${stats([[involved.length,"agents collaborating"],[m.events_processed,"actions checked"],[m.blocked_before_effect,"actions blocked"],[m.episodes_detected,"incidents raised"]])}
+      <ul class="story">
+        <li><div class="ico">✍️</div><div class="t">${who(shared.agent_id)} ${chip(shared.task_id)} wrote the shared brief ${res(shared.resource_id)}
+          <small>${teamOf("task_marketing")} and ${teamOf("task_support")} are approved to share this document.</small></div></li>
+        <li><div class="ico">👥</div><div class="t">${involved.length-1} more agents from both teams read and used it
+          <small>Every read went through the gateway and was checked against team permissions. All allowed.</small></div></li>
+        <li><div class="ico">🟢</div><div class="t"><b>Result: nothing flagged, nobody paused.</b>
+          <small>Being connected isn't the same as colluding. Permissions decide.</small></div></li>
+      </ul>
+      ${evidence({scenario:"S1", metrics:{events:m.events_processed, allowed:m.allowed_effects, blocked:m.blocked_before_effect, episodes:m.episodes_detected}, events:evs.map(e=>({id:e._id, agent:e.agent_id, team:e.task_id, type:e.event_type, resource:e.resource_id, outcome:e.outcome}))})}`;
+    $("r1").classList.add("show"); markDone(1);
+    await refreshTeams(involved);
+    idle(`Done in ${((performance.now()-t0)/1000).toFixed(1)}s.`);
+  }catch(e){ idle(`Something went wrong: ${e.message}`, true); }
+}
+
+function swarmStory(ep){
+  const tl = ep.timeline, note = (ep.artifacts||[])[0];
+  const writer = tl.find(e=>e.event_type==="artifact_write");
+  const reads = tl.filter(e=>e.event_type==="artifact_read");
+  const denied = tl.find(e=>e.outcome==="denied");
+  const eff = denied && (ep.effects||[]).find(f=>f.event_id===denied._id);
+  const crossReads = reads.filter(r=>r.task_id!==writer.task_id);
+  let li = `<li class="warn"><div class="ico">✍️</div><div class="t">${who(writer.agent_id)} ${chip(writer.task_id)} posted a note to ${res(writer.resource_id)}
+      <small>No team is approved to use this board.</small>${note?`<div class="note">“${esc(note.content_redacted)}”</div>`:""}</div></li>`;
+  li += `<li class="warn"><div class="ico">👀</div><div class="t">${crossReads.length} agents from other teams read it: ${crossReads.map(r=>`${who(r.agent_id)} ${chip(r.task_id)}`).join(", ")}
+      <small>Information crossed team boundaries with no approval: the swarm is forming.</small></div></li>`;
+  if(denied){
+    li += `<li class="blocked"><div class="ico">⛔</div><div class="t">${who(denied.agent_id)} ${chip(denied.task_id)} then tried to open ${res(denied.resource_id)}: <span class="blk">BLOCKED before it ran</span>
+      <small>That's outside its team's job (it went off-task right after reading the note). The gateway refused it; recorded as executed: ${eff?eff.executed:false}.</small></div></li>`;
+  }
+  li += `<li><div class="ico">⏸</div><div class="t"><b>${ep.agent_ids.length} agents involved were paused.</b> Everyone else keeps working.
+      <small>Paused: ${ep.agent_ids.map(a=>agentName(a)).join(", ")}</small></div></li>`;
+  return `<ul class="story">${li}</ul>`;
+}
+
+async function runSwarm(label){
+  const r = await post("/api/demo/run", {scenario:"S2"});
+  if(!r.episodes.length) throw new Error("no incident was detected");
+  const ep = await api(`/api/episodes/${r.episodes[0]._id}`);
+  return {r, ep};
+}
+
+async function step2(){
+  const t0 = busy("Agents are acting; SwarmGuard is watching…");
+  try{
+    const {r, ep} = await runSwarm(); lastEpisode = ep;
+    const m = r.metrics;
+    $("r2").innerHTML = `
+      <div class="verdict bad"><span class="big">⛔</span> Swarm detected and stopped. The sensitive request never ran.</div>
+      ${stats([[ep.agent_ids.length,"agents paused"],[ep.task_ids.length,"teams involved"],[m.blocked_before_effect,"action blocked before it ran"],["0","sensitive records exposed"]])}
+      ${swarmStory(ep)}
+      <div class="why">${ep.triggered_rules.map(x=>`<span>${RULE_PLAIN[x]||x}</span>`).join("")}</div>
+      ${evidence({episode:ep._id, status:ep.status, risk_score:ep.risk_score, rules:ep.triggered_rules, agents:ep.agent_ids, evidence_event_ids:ep.evidence_event_ids,
+        blocked_effect:(ep.effects||[]).filter(f=>!f.executed).map(f=>({effect:f._id, action:f.action_id, resource:f.resource_id, decision:f.decision, executed:f.executed}))})}`;
+    $("r2").classList.add("show"); markDone(2);
+    await refreshTeams(ep.agent_ids);
+    idle(`Done in ${((performance.now()-t0)/1000).toFixed(1)}s.`);
+  }catch(e){ idle(`Something went wrong: ${e.message}`, true); }
+}
+
+function modeLabel(mode){
+  if((mode||"").startsWith("atlas_vector_search")) return `Found with <b>MongoDB Atlas Vector Search</b> (Voyage embeddings generated by Atlas), searching only this company's confirmed cases.`;
+  return `<span class="fallback">Local fallback search, not Atlas Vector Search</span> (the app isn't connected to Atlas).`;
+}
+
+async function step3(){
+  const t0 = busy("Confirming the incident…");
+  try{
+    let ep = lastEpisode, kase = null;
+    if(ep){ try{ kase = await post(`/api/episodes/${ep._id}/confirm`); }catch(_){ kase = null; } }
+    if(!kase){ busy("Running the swarm first…"); ep = (await runSwarm()).ep; kase = await post(`/api/episodes/${ep._id}/confirm`); }
+    busy("Replaying the same attack pattern…");
+    const {ep: ep2} = await runSwarm(); lastEpisode = ep2;
+    const sim = ep2.similar_cases || {results:[]};
+    const top = (sim.results||[]).find(c=>c._id===kase._id) || (sim.results||[])[0];
+    const score = top && typeof top.score==="number" ? top.score : null;
+    const pct = score!==null ? Math.round(score*100) : null;
+    $("r3").innerHTML = top ? `
+      <div class="verdict mem"><span class="big">🧠</span> Recognised: this matches an incident an analyst already confirmed.</div>
+      <div class="match">
+        <div class="gauge" style="background:conic-gradient(var(--mem) ${pct||0}%, var(--line) 0)"><div style="background:var(--panel);width:48px;height:48px;border-radius:50%;display:grid;place-items:center">${pct!==null?pct+"%":"✓"}</div></div>
+        <div><b>New incident ${ep2._id}</b> resembles confirmed case <b>${top._id}</b>${pct!==null?` (${pct}% similar)`:""}.
+          <div class="src">${modeLabel(sim.mode)}</div>
+          <div class="src">Suggestions only: memory never blocks or allows anything by itself. Enforcement stays with the gateway.</div></div>
+      </div>
+      ${evidence({confirmed_case:kase._id, from_episode:ep._id, new_episode:ep2._id, search_mode:sim.mode, results:(sim.results||[]).map(c=>({case:c._id, score:c.score, from_episode:c.provenance_episode_id}))})}`
+    : `<div class="verdict bad">No similar case came back (${esc(sim.mode||"unknown mode")}).</div>${evidence(sim)}`;
+    $("r3").classList.add("show"); markDone(3);
+    await refreshTeams(ep2.agent_ids);
+    idle(`Done in ${((performance.now()-t0)/1000).toFixed(1)}s.`);
+  }catch(e){ idle(`Something went wrong: ${e.message}`, true); }
+}
+
+health(); loadWorld().catch(e=>idle(`Could not load the demo world: ${e.message}`, true));
+</script>
+</body>
+</html>

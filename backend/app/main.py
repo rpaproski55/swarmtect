@@ -29,12 +29,30 @@ class ReadReq(BaseModel):
 class DemoReq(BaseModel):
     scenario: str = "S2"; tenant_id: str = "demo"
 
-@app.get("/")
-def cockpit():
+def _page(name: str):
     from fastapi.responses import HTMLResponse
     import pathlib
-    html = pathlib.Path(__file__).parent.joinpath("static", "cockpit.html").read_text()
-    return HTMLResponse(html)
+    return HTMLResponse(pathlib.Path(__file__).parent.joinpath("static", name).read_text())
+
+@app.get("/")
+def story():
+    """Guided demo: approved teamwork -> unapproved swarm blocked -> case memory."""
+    return _page("story.html")
+
+@app.get("/classic")
+def cockpit():
+    """Technical cockpit: counters, evidence graph, raw event stream."""
+    return _page("cockpit.html")
+
+@app.get("/api/world")
+def world(tenant_id: str = "demo"):
+    """Teams (tasks), what each may use, and which cross-team sharing is approved."""
+    return {"tasks": store.find("tasks", {"tenant_id": tenant_id})}
+
+@app.get("/api/events")
+def events_list(tenant_id: str = "demo"):
+    """Stored gateway events for the tenant, oldest first (single read, no detector run)."""
+    return sorted(store.find("events", {"tenant_id": tenant_id}), key=lambda e: e["ts"])
 
 @app.get("/api/graph")
 def graph(tenant_id: str = "demo"):
@@ -128,8 +146,12 @@ def episode(episode_id: str, tenant_id: str = "demo"):
     ep = store.find_one("episodes", {"_id": episode_id, "tenant_id": tenant_id})
     if not ep:
         raise HTTPException(404, "episode not found")
-    timeline = [store.find_one("events", {"_id": eid}) for eid in ep["evidence_event_ids"]]
-    return {**ep, "timeline": [t for t in timeline if t]}
+    ids = ep["evidence_event_ids"]
+    by_id = {e["_id"]: e for e in store.find("events", {"_id": {"$in": ids}})}  # one round trip
+    artifacts = store.find("artifacts", {"_id": {"$in": ep.get("artifact_ids", [])}}) if ep.get("artifact_ids") else []
+    effects = store.find("gateway_effects", {"event_id": {"$in": ids}})
+    return {**ep, "timeline": sorted([by_id[i] for i in ids if i in by_id], key=lambda e: e["ts"]),
+            "artifacts": artifacts, "effects": effects}
 
 @app.get("/api/metrics")
 def metrics(tenant_id: str = "demo"):
