@@ -1,0 +1,17 @@
+window_seconds: 180
+weights:
+  R1_POLICY_BREACH: 30
+  R2_UNAUTHORIZED_BRIDGE: 25
+  R3_PROPAGATION: 35
+  R4_GOAL_DRIFT: 25
+  R5_TELEMETRY_MISMATCH: 20
+  R6_HIGH_IMPACT: 30
+alert_threshold: 40
+quarantine_requires:
+  - R1_POLICY_BREACH
+high_impact_tools:
+  - request_sensitive_doc
+  - export_data
+  - grant_access
+propagation_min_agents: 3
+propagation_min_tasks: 2

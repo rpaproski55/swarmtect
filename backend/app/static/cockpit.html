@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SwarmGuard Cockpit</title>
+<style>
+body{background:#0b0f14;color:#e6edf3;font-family:system-ui;margin:0;padding:24px}
+h1{font-size:22px;margin:0 0 4px} .sub{color:#8b949e;margin-bottom:16px}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.card{border:1px solid #30363d;border-radius:10px;padding:12px 16px;min-width:130px}
+.card b{font-size:24px;display:block} .card span{color:#8b949e;font-size:12px}
+button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:9px 14px;cursor:pointer}
+button.danger{background:#7a1f1f;border-color:#a33} button:hover{filter:brightness(1.2)}
+.ep{border:1px solid #30363d;border-radius:10px;padding:14px;margin:12px 0}
+.ep .rules{color:#f0b429} .contained{color:#f85149} .alert{color:#f0b429}
+svg{background:#0d1117;border:1px solid #30363d;border-radius:10px;width:100%;height:300px}
+pre{white-space:pre-wrap;color:#8b949e;font-size:12px} .row{display:flex;gap:8px;flex-wrap:wrap}
+</style></head><body>
+<h1>SwarmGuard — coordination episode cockpit</h1>
+<div class="sub">Every counter, edge and timeline below is read live from stored gateway records. Backend: <span id="backend">…</span></div>
+<div class="cards">
+  <div class="card"><b id="m-events">–</b><span>events processed</span></div>
+  <div class="card"><b id="m-blocked">–</b><span>blocked before effect</span></div>
+  <div class="card"><b id="m-episodes">–</b><span>episodes detected</span></div>
+  <div class="card"><b id="m-quar">–</b><span>agents quarantined</span></div>
+  <div class="card"><b id="m-allowed">–</b><span>legit actions allowed</span></div>
+</div>
+<div class="row">
+  <button onclick="run('S1')">▶ Run BENIGN collaboration (challenge)</button>
+  <button class="danger" onclick="run('S2')">▶ Trigger unauthorized shared board</button>
+  <button onclick="run('S3')">▶ Fragmented coordination (S3)</button>
+  <button onclick="run('S4')">▶ Trace mismatch (S4)</button>
+  <button onclick="run('S0')">▶ Benign independent (S0)</button>
+  <button onclick="run('S6')">▶ 4 real LangGraph agents (S6)</button>
+</div>
+<h3>Evidence graph (from stored episodes)</h3>
+<svg id="graph"></svg>
+<div id="episodes"></div>
+<h3>Live event stream (SSE, polling fallback)</h3>
+<pre id="stream">connecting…</pre>
+<script>
+const SECRET = "demo-operator-secret-change-me"; // demo only
+async function run(s){
+  await fetch('/api/demo/reset',{method:'POST',headers:{'x-operator-secret':SECRET}});
+  await fetch('/api/demo/run',{method:'POST',headers:{'Content-Type':'application/json','x-operator-secret':SECRET},body:JSON.stringify({scenario:s})});
+  refresh();
+}
+async function refresh(){
+  const m = await (await fetch('/api/metrics')).json();
+  document.getElementById('backend').textContent = m.store_backend;
+  m_events.textContent=m.events_processed; document.getElementById('m-blocked').textContent=m.blocked_before_effect;
+  document.getElementById('m-episodes').textContent=m.episodes_detected; document.getElementById('m-quar').textContent=m.agents_quarantined;
+  document.getElementById('m-allowed').textContent=m.allowed_effects;
+  const eps = await (await fetch('/api/episodes')).json();
+  document.getElementById('episodes').innerHTML = eps.length ? '' : '<p>No episodes. Benign work is not flagged.</p>';
+  for(const ep of eps){
+    const d = document.createElement('div'); d.className='ep';
+    d.innerHTML = `<strong>${ep._id}</strong> · <span class="${ep.status}">${ep.status}</span> · risk ${ep.risk_score}
+      · <span class="rules">${ep.triggered_rules.join(', ')}</span><br>Agents: ${ep.agent_ids.join(', ')}
+      <br>Tasks: ${ep.task_ids.join(', ')}<br>${ep.explanation}
+      <br><small>Evidence: ${ep.evidence_event_ids.join(', ')}</small>
+      <br><small>Similar verified cases: ${(ep.similar_cases&&ep.similar_cases.results||[]).map(c=>c._id).join(', ')||'none yet'} (${(ep.similar_cases||{}).mode||''})</small>
+      <br><button onclick="confirmCase('${ep._id}')">Confirm as verified case</button>
+      <button onclick="showTimeline('${ep._id}')">Timeline</button><pre id="tl-${ep._id}"></pre>`;
+    document.getElementById('episodes').appendChild(d);
+  }
+  const g = await (await fetch('/api/graph')).json(); drawGraph(g);
+}
+async function confirmCase(id){
+  await fetch(`/api/episodes/${id}/confirm`,{method:'POST',headers:{'x-operator-secret':SECRET}});
+  alert('Verified case stored. Run S2 again — the new episode will cite it as a similar case.'); refresh();
+}
+async function showTimeline(id){
+  const ep = await (await fetch(`/api/episodes/${id}`)).json();
+  document.getElementById('tl-'+id).textContent = ep.timeline.map(e=>`${e.ts}  ${e.agent_id}  ${e.event_type}  ${e.resource_id||''}  → ${e.outcome}`).join('\n');
+}
+function drawGraph(g){
+  const svg = document.getElementById('graph'); const W = svg.clientWidth||900, H=300;
+  const pos = {}; g.nodes.forEach((n,i)=>{ const a=(i/g.nodes.length)*Math.PI*2; pos[n.id]=[W/2+Math.cos(a)*W*0.38, H/2+Math.sin(a)*H*0.36, n]; });
+  let s='';
+  for(const e of g.edges){ if(pos[e.from]&&pos[e.to]) s+=`<line x1="${pos[e.from][0]}" y1="${pos[e.from][1]}" x2="${pos[e.to][0]}" y2="${pos[e.to][1]}" stroke="#30363d"/>`; }
+  for(const id in pos){ const [x,y,n]=pos[id]; const col=n.kind==='episode'?'#f85149':n.kind==='artifact'?'#f0b429':'#58a6ff';
+    s+=`<circle cx="${x}" cy="${y}" r="14" fill="${col}" opacity="0.85"/><text x="${x}" y="${y+28}" fill="#e6edf3" font-size="9" text-anchor="middle">${n.label.slice(0,18)}</text>`; }
+  svg.innerHTML=s;
+}
+const m_events=document.getElementById('m-events');
+const es = new EventSource('/api/events/stream');
+es.onmessage = (ev)=>{ const e=JSON.parse(ev.data); const el=document.getElementById('stream');
+  el.textContent = `${e.ts} ${e.agent_id} ${e.event_type} ${e.resource_id||''} → ${e.outcome}\n` + el.textContent.slice(0,1200); refreshCountersOnly(); };
+async function refreshCountersOnly(){ try{ const m=await (await fetch('/api/metrics')).json();
+  m_events.textContent=m.events_processed; }catch(_){} }
+refresh(); setInterval(refresh, 5000);
+</script></body></html>

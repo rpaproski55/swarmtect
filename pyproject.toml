@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarmguard"
+version = "0.1.0"
+description = "Atlas-native detection and containment of unauthorized AI-agent swarm coordination"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "pydantic>=2.6",
+  "pymongo>=4.6",
+  "langgraph>=0.2",
+  "langchain-core>=0.3",
+  "agent-engine-sdk-langgraph>=0.11",
+  "httpx>=0.27",
+  "pyyaml>=6",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+agents = ["langgraph>=0.1", "langchain-core>=0.2"]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

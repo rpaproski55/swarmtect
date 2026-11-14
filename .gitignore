@@ -1,7 +1,13 @@
-# Secrets — never commit connection strings or API keys
+# Secrets: never commit connection strings or API keys
 .env
 .env.*
 !.env.example
-node_modules/
-__pycache__/
 .venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+logs/
+results/*.json
+!results/.gitkeep
+node_modules/
+dist/

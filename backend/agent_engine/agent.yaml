@@ -1,0 +1,3 @@
+name: swarmguard-monitored-agent
+entrypoint: backend/agent_engine/main.py:build_monitored_agent
+description: LangGraph agent whose tool calls pass through the SwarmGuard gateway. Deployment status in STATUS.md — preview access required, not assumed.
