@@ -84,7 +84,9 @@ def confirm_episode(episode_id: str, tenant_id: str = "demo", x_operator_secret:
 
 @app.get("/api/cases/search")
 def cases_search(q: str, tenant_id: str = "demo"):
-    from .memory import search_cases_local_embedding
+    from .memory import search_cases, search_cases_local_embedding
+    if getattr(store, "backend", "") == "mongodb-atlas":
+        return search_cases(store, tenant_id, q)
     return search_cases_local_embedding(store, tenant_id, q)
 
 @app.get("/api/health")

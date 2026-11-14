@@ -6,6 +6,6 @@ Trust tiers: gateway/resource-ledger events are `authoritative`; agent self-repo
 
 Truth hygiene: simulator truth lives only in scenario return values for post-hoc metrics. It is stripped from event metadata in `Gateway._event`, and a test asserts no event carries a truth label.
 
-Vector index (to create in Atlas when provisioned): collection `verified_cases`, path `embedding`, filter fields `tenant_id` and `review_status`. Query code in `backend/app/memory.py` uses those as a pre-filter — no cross-tenant retrieval.
+Vector index `verified_cases_vector` (created by `scripts/setup_atlas.py`): Atlas Automated Embeddings (`autoEmbed`, Voyage `voyage-4`) on `verified_cases.case_text`, filter fields `tenant_id` and `review_status`. Atlas embeds case text at index time and the query text at query time, so the app has no embedding pipeline. `backend/app/memory.py` pre-filters on tenant: no cross-tenant retrieval (verified on the sandbox cluster: a paraphrased query matched the `demo` case at score 0.81 and never returned the `tenant2` case).
 
 Change Streams / SSE: not used for blocking (stream latency can't guarantee prevention). Dashboard polls; that is labelled in the UI path, per brief §4.

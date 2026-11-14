@@ -25,17 +25,27 @@ def confirm_episode_as_case(store, tenant_id, episode_id):
                  f"artifacts {' '.join(ep['artifact_ids'])} unauthorized board propagation high impact denied")
     return store_verified_case(store, tenant_id, case_text, episode_id, ep["evidence_event_ids"])
 
+VECTOR_INDEX = "verified_cases_vector"   # Atlas Vector Search index, autoEmbed on case_text (voyage-4)
+AUTO_EMBED_MODEL = "voyage-4"
+
 def search_cases(store, tenant_id, query_text, embedding=None, limit=3):
-    if getattr(store, "backend", "") == "mongodb-atlas" and embedding:
+    """Atlas Vector Search over verified cases, tenant pre-filtered.
+
+    The index uses Atlas Automated Embeddings: Atlas embeds `case_text` with
+    Voyage at index time and embeds `query_text` at query time, so the app ships
+    no embedding pipeline. Falls back to a clearly labelled lexical search when
+    not on Atlas or when the vector query fails."""
+    if getattr(store, "backend", "") == "mongodb-atlas":
         try:
             pipeline = [
-                {"$vectorSearch": {"index": "verified_cases_vector", "path": "embedding",
-                                   "queryVector": embedding, "numCandidates": 50, "limit": limit,
+                {"$vectorSearch": {"index": VECTOR_INDEX, "path": "case_text",
+                                   "query": {"text": query_text}, "numCandidates": 50, "limit": limit,
                                    "filter": {"tenant_id": tenant_id, "review_status": "verified"}}},
                 {"$project": {"_id": 1, "case_text": 1, "provenance_episode_id": 1,
                               "evidence_event_ids": 1, "score": {"$meta": "vectorSearchScore"}}},
             ]
-            return {"mode": "atlas_vector_search", "results": list(store.db["verified_cases"].aggregate(pipeline))}
+            return {"mode": f"atlas_vector_search_auto_embed_{AUTO_EMBED_MODEL}",
+                    "results": list(store.db["verified_cases"].aggregate(pipeline))}
         except Exception as e:
             return {"mode": "lexical_fallback_after_vector_error", "error": str(e), "results": _lexical(store, tenant_id, query_text, limit)}
     return {"mode": "lexical_fallback_no_vector_index_or_embedding", "results": _lexical(store, tenant_id, query_text, limit)}
