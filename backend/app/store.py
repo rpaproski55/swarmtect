@@ -69,6 +69,63 @@ class MongoStore:
         for c in COLLECTIONS:
             if c not in preserve: self.db[c].delete_many({})
 
+class BatchingStore(MemoryStore):
+    """Run-scoped write-behind wrapper over MongoStore for demo scenario runs.
+
+    A demo click makes ~150 small reads/writes; at ~80 ms per Atlas round trip
+    that is 10+ seconds. This keeps the run's working set in memory (the same
+    gateway + detector code runs unchanged), then persists everything to Atlas
+    in bulk on flush(): parallel clears, then one insert_many per collection.
+    Everything the cockpit displays is still read back from Atlas afterwards.
+    Live API paths (/api/tool/execute, artifact routes) keep writing per call.
+    """
+    backend = "mongodb-atlas"
+
+    def __init__(self, inner: "MongoStore", preload=("verified_cases",)):
+        super().__init__()
+        self.inner, self.db = inner, inner.db
+        self._cleared: set[str] = set()
+        self._inserted: dict[str, list] = {c: [] for c in COLLECTIONS}
+        self._updates: list[tuple[str, dict, dict]] = []
+        for c in preload:  # small, needed for case-memory lookups during detection
+            self.data[c] = list(inner.db[c].find({}))
+
+    def insert(self, coll, doc):
+        d = super().insert(coll, doc)
+        self._inserted[coll].append(d["_id"])
+        return d
+
+    def update(self, coll, filt, changes):
+        d = super().update(coll, filt, changes)
+        if d is not None and d["_id"] not in self._inserted[coll]:
+            self._updates.append((coll, filt, changes))  # doc predates this run: patch it in Atlas
+        return d
+
+    def clear(self, preserve=()):
+        super().clear(preserve)
+        for c in COLLECTIONS:
+            if c not in preserve:
+                self._cleared.add(c); self._inserted[c] = []
+        self._updates = [u for u in self._updates if u[0] in preserve]
+
+    def flush(self) -> dict:
+        from concurrent.futures import ThreadPoolExecutor
+        ids_by_coll = {c: set(ids) for c, ids in self._inserted.items() if ids}
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(lambda c: self.db[c].delete_many({}), sorted(self._cleared)))
+            def write(c):
+                docs = [d for d in self.data[c] if d["_id"] in ids_by_coll[c]]
+                if docs:
+                    self.db[c].insert_many(docs, ordered=False)
+                return len(docs)
+            counts = dict(zip(ids_by_coll, pool.map(write, list(ids_by_coll))))
+        for coll, filt, changes in self._updates:
+            self.db[coll].update_one(filt, {"$set": changes})
+        written = {"cleared": sorted(self._cleared), "inserted": counts, "updated": len(self._updates)}
+        self._cleared, self._updates = set(), []
+        self._inserted = {c: [] for c in COLLECTIONS}
+        return written
+
 def load_env() -> None:
     """Load .env from the repo root so MONGODB_URI etc. are picked up.
     Real environment variables win. Skipped under pytest (see tests/conftest.py)."""

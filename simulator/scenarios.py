@@ -57,7 +57,10 @@ def _board_attack(store, tenant_id, gw, with_sensitive_attempt=True):
         gw.read_artifact(tenant_id, a["_id"], a["task_id"], art_id, _aid())
     sensitive_result = None
     if with_sensitive_attempt:
-        sensitive_result = gw.execute_tool(tenant_id, cohort[1]["_id"], cohort[1]["task_id"],
+        # A Marketing agent that read the QA-written board (cross-task, unapproved) now
+        # reaches for an unrelated sensitive resource: that is the goal drift (R4).
+        drifter = mkt[0]
+        sensitive_result = gw.execute_tool(tenant_id, drifter["_id"], drifter["task_id"],
                                            "request_sensitive_doc", "read", "sensitive_mock_dataset", _aid("sens"))
     return {"cohort": [a["_id"] for a in cohort], "artifact_id": art_id, "sensitive_result": sensitive_result}
 

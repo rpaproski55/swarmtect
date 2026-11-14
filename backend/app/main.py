@@ -91,8 +91,14 @@ def cases_search(q: str, tenant_id: str = "demo"):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "store_backend": getattr(store, "backend", "unknown"),
-            "atlas_connected": getattr(store, "backend", "") == "mongodb-atlas"}
+    backend = getattr(store, "backend", "unknown")
+    if backend != "mongodb-atlas":
+        return {"ok": True, "store_backend": backend, "atlas_connected": False}
+    try:
+        store.client.admin.command("ping")  # real round trip, not just "configured for Atlas"
+        return {"ok": True, "store_backend": backend, "atlas_connected": True}
+    except Exception as e:
+        return {"ok": False, "store_backend": backend, "atlas_connected": False, "error": type(e).__name__}
 
 @app.post("/api/tool/execute")
 def tool_execute(req: ToolReq):
@@ -156,16 +162,23 @@ def demo_reset(x_operator_secret: str | None = Header(default=None)):
 def demo_run(req: DemoReq, x_operator_secret: str | None = Header(default=None)):
     require_operator(x_operator_secret)
     from simulator.scenarios import SCENARIOS
+    if req.scenario != "S6" and req.scenario not in SCENARIOS:
+        raise HTTPException(400, f"unknown scenario {req.scenario}")
+    import time as _t
+    t0 = _t.perf_counter()
+    # On Atlas, run the click's workload in a write-behind batch, then persist in bulk (see BatchingStore).
+    from .store import BatchingStore
+    run_store = BatchingStore(store) if getattr(store, "backend", "") == "mongodb-atlas" else store
+    extra = {}
     if req.scenario == "S6":
         from simulator.langgraph_agents import run_s6_langgraph
-        info = run_s6_langgraph(store, tenant_id=req.tenant_id)
-        eps = Detector(store).run(req.tenant_id)
-        return {"scenario": "S6", "truth_episodes": info.get("truth_episodes"),
-                "episodes_detected": len(eps), "episodes": eps, "metrics": compute_metrics(store, req.tenant_id),
-                "langgraph_agents": info.get("langgraph_agents")}
-    if req.scenario not in SCENARIOS:
-        raise HTTPException(400, f"unknown scenario {req.scenario}")
-    info = SCENARIOS[req.scenario](store, tenant_id=req.tenant_id)
-    eps = Detector(store).run(req.tenant_id)
+        info = run_s6_langgraph(run_store, tenant_id=req.tenant_id)
+        extra["langgraph_agents"] = info.get("langgraph_agents")
+    else:
+        info = SCENARIOS[req.scenario](run_store, tenant_id=req.tenant_id)
+    eps = Detector(run_store).run(req.tenant_id)
+    if run_store is not store:
+        extra["persisted"] = run_store.flush()
+    extra["elapsed_ms"] = round((_t.perf_counter() - t0) * 1000)
     return {"scenario": req.scenario, "truth_episodes": info.get("truth_episodes"),
-            "episodes_detected": len(eps), "episodes": eps, "metrics": compute_metrics(store, req.tenant_id)}
+            "episodes_detected": len(eps), "episodes": eps, "metrics": compute_metrics(store, req.tenant_id), **extra}

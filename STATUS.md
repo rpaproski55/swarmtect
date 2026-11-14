@@ -24,3 +24,10 @@ Updated: 2026-11-14, during Agents in Context Toronto hackathon build.
 
 ## Safety scope
 All adversarial behavior is synthetic, in a toy org (Northstar Labs) with fake resources (`board_alpha`, `sensitive_mock_dataset`). No real systems, accounts, or exploit payloads.
+
+## Demo-click performance (2026-11-14)
+- Measured on Atlas: ~80 ms per round trip; a demo click made ~150 sequential round trips (11–15 s).
+- `/api/demo/run` now runs the click's gateway + detector workload against a run-scoped write-behind copy (`BatchingStore`) and persists it to Atlas in bulk (parallel clears + one `insert_many` per collection). Detection results are identical to the per-call path (`tests/test_batching_store.py`, S0–S4 + S6). Expected ~1–2 s per click; to be re-measured on Atlas. Response includes `elapsed_ms` and what was persisted.
+- Live per-call paths are unchanged: `/api/tool/execute`, artifact routes, Vector Search.
+- `/api/health` now pings Atlas instead of reporting configuration only.
+- S2 fix: the sensitive request now comes from the Marketing agent that read the QA-written board (cross-task), so the episode carries R4 goal drift as the demo script describes.
