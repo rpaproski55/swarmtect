@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-HIGH_IMPACT = {"request_sensitive_doc", "export_data", "grant_access"}
+from .config import load_rules
+HIGH_IMPACT = set(load_rules()["high_impact_tools"])  # one source of truth: configs/rules.yaml
 
 def is_authorized(store, tenant_id: str, agent: dict, task: dict | None,
                   tool: str | None, resource_id: str | None) -> tuple[bool, str]:

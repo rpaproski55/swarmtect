@@ -9,12 +9,17 @@ from .models import now, new_id
 from .policies import collaboration_approved, HIGH_IMPACT
 from .gateway import Gateway
 
-WEIGHTS = {"R1_POLICY_BREACH": 30, "R2_UNAUTHORIZED_BRIDGE": 25, "R3_PROPAGATION": 35,
-           "R4_GOAL_DRIFT": 25, "R5_TELEMETRY_MISMATCH": 20, "R6_HIGH_IMPACT": 30}
+from .config import rules as load_rules
+
+OPEN_STATUSES = ("watch", "alert", "contained")
+
 
 class Detector:
-    def __init__(self, store):
+    def __init__(self, store, rules: dict | None = None):
         self.store = store
+        self.rules = load_rules(rules)          # configs/rules.yaml, shallow-overridden by `rules`
+        self.weights = self.rules["weights"]
+        self.high_impact = set(self.rules["high_impact_tools"])
 
     def analyze(self, tenant_id: str) -> list[dict]:
         """Compute evidence groups without persisting. Returns candidate episodes (dicts)."""
@@ -65,7 +70,7 @@ class Detector:
                 for e in (w, r):
                     if e["_id"] not in b["evidence"]: b["evidence"].append(e["_id"])
                     b["agents"].add(e["agent_id"]); b["tasks"].add(e["task_id"])
-            if len(g["agents"]) >= 3 and len(g["tasks"]) >= 2:
+            if len(g["agents"]) >= self.rules["propagation_min_agents"] and len(g["tasks"]) >= self.rules["propagation_min_tasks"]:
                 b["rules"].add("R3_PROPAGATION")
                 for e in g["writes"] + g["reads"]:
                     if e["_id"] not in b["evidence"]: b["evidence"].append(e["_id"])
@@ -87,7 +92,7 @@ class Detector:
             b["rules"].add("R1_POLICY_BREACH")
             if e["_id"] not in b["evidence"]: b["evidence"].append(e["_id"])
             b["agents"].add(e["agent_id"]); b["tasks"].add(e["task_id"])
-            if is_denied and ((e.get("metadata") or {}).get("high_impact") or e.get("tool") in HIGH_IMPACT):
+            if is_denied and ((e.get("metadata") or {}).get("high_impact") or e.get("tool") in self.high_impact):
                 b["rules"].add("R6_HIGH_IMPACT")
             # R4: drift if this agent earlier made an unauthorized read
             if any(r["ts"] <= e["ts"] for r in unauthorized_read_events.get(e["agent_id"], [])):
@@ -123,7 +128,7 @@ class Detector:
             alert = len(rules) >= 2 or "R3_PROPAGATION" in rules
             if not alert:
                 continue
-            score = sum(WEIGHTS.get(r, 0) for r in rules)
+            score = sum(self.weights.get(r, 0) for r in rules)
             out.append({"tenant_id": tenant_id, "agent_ids": sorted(b["agents"]), "task_ids": sorted(x for x in b["tasks"] if x),
                         "artifact_ids": sorted(b["artifacts"]), "evidence_event_ids": b["evidence"],
                         "triggered_rules": sorted(rules), "risk_score": score,
@@ -132,52 +137,75 @@ class Detector:
         return out
 
     def run(self, tenant_id: str, quarantine: bool = True) -> list[dict]:
-        """Persist new episodes (dedupe by sorted evidence set) and quarantine when
-        R1 policy breach + corroborating evidence are present."""
+        """Upsert episodes by a stable key (one board = one episode, extended in place),
+        then contain when an R1 policy breach + corroborating evidence are present.
+        Containment is idempotent: no re-quarantine, no duplicate incident actions."""
         candidates = self.analyze(tenant_id)
-        existing_keys = set()
-        for ep in self.store.find("episodes", {"tenant_id": tenant_id}):
-            existing_keys.add(tuple(sorted(ep.get("evidence_event_ids") or [])))
+        open_eps = {ep.get("episode_key"): ep for ep in self.store.find("episodes", {"tenant_id": tenant_id})
+                    if ep.get("episode_key") and ep.get("status") in OPEN_STATUSES}
         persisted = []
         gw = Gateway(self.store)
         for c in candidates:
-            k = tuple(sorted(c["evidence_event_ids"]))
-            if k in existing_keys:
-                persisted.append(next(ep for ep in self.store.find("episodes", {"tenant_id": tenant_id})
-                                      if tuple(sorted(ep.get("evidence_event_ids") or [])) == k))
-                continue
-            ep = {"_id": new_id("ep"), "tenant_id": tenant_id, "first_seen_at": now().isoformat(),
-                  "detected_at": now().isoformat(), "last_seen_at": now().isoformat(),
-                  "status": "alert", "agent_ids": c["agent_ids"], "task_ids": c["task_ids"],
-                  "artifact_ids": c["artifact_ids"], "evidence_event_ids": c["evidence_event_ids"],
-                  "triggered_rules": c["triggered_rules"], "severity": c["severity"], "risk_score": c["risk_score"],
-                  "explanation": f"Rules {', '.join(c['triggered_rules'])} over {len(c['evidence_event_ids'])} gateway events; "
-                                 f"{len(c['agent_ids'])} agents across {len(c['task_ids'])} tasks.",
-                  "permissions_snapshot": {}, "actions_taken": []}
-            # Verified-case memory: attach similar CONFIRMED cases as analyst suggestions.
-            try:
-                from .memory import search_cases_local_embedding, search_cases
-                query = f"{' '.join(c['triggered_rules'])} tasks {' '.join(c['task_ids'])} agents coordination board unauthorized"
-                if getattr(self.store, "backend", "") == "mongodb-atlas":
-                    sim = search_cases(self.store, c["tenant_id"], query)
-                    if not sim.get("results"):
-                        sim = search_cases_local_embedding(self.store, c["tenant_id"], query)
-                else:
-                    sim = search_cases_local_embedding(self.store, c["tenant_id"], query)
-                ep["similar_cases"] = sim
-            except Exception as e:  # memory is advisory only; never break detection
-                ep["similar_cases"] = {"mode": "unavailable", "error": str(e), "results": []}
-            ep = self.store.insert("episodes", ep)
-            if quarantine and "R1_POLICY_BREACH" in c["triggered_rules"] and len(c["triggered_rules"]) >= 2:
-                for aid in c["agent_ids"]:
-                    # Only quarantine agents with a direct breach or unauthorized participation:
-                    # all agents in the episode are participants by construction.
-                    gw.quarantine(tenant_id, aid, actor="detector", reason=f"episode {ep['_id']}: {','.join(c['triggered_rules'])}", episode_id=ep["_id"])
-                    ep["actions_taken"].append(f"quarantined:{aid}")
-                self.store.update("episodes", {"_id": ep["_id"]}, {"status": "contained", "actions_taken": ep["actions_taken"]})
-                ep["status"] = "contained"
+            key = c["key"]
+            ep = open_eps.get(key)
+            if ep is not None:
+                merged = {
+                    "agent_ids": sorted(set(ep["agent_ids"]) | set(c["agent_ids"])),
+                    "task_ids": sorted(set(ep["task_ids"]) | set(c["task_ids"])),
+                    "artifact_ids": sorted(set(ep["artifact_ids"]) | set(c["artifact_ids"])),
+                    "evidence_event_ids": ep["evidence_event_ids"] + [x for x in c["evidence_event_ids"] if x not in ep["evidence_event_ids"]],
+                    "triggered_rules": sorted(set(ep["triggered_rules"]) | set(c["triggered_rules"])),
+                }
+                if any(merged[k] != ep[k] for k in merged):
+                    merged["risk_score"] = sum(self.weights.get(r, 0) for r in merged["triggered_rules"])
+                    merged["severity"] = "high" if merged["risk_score"] >= 60 else "medium"
+                    merged["last_seen_at"] = now().isoformat()
+                    merged["explanation"] = self._explain(merged)
+                    ep = self.store.update("episodes", {"_id": ep["_id"], "tenant_id": tenant_id}, merged) or {**ep, **merged}
+            else:
+                ep = {"_id": new_id("ep"), "tenant_id": tenant_id, "episode_key": key, "first_seen_at": now().isoformat(),
+                      "detected_at": now().isoformat(), "last_seen_at": now().isoformat(),
+                      "status": "alert", "agent_ids": c["agent_ids"], "task_ids": c["task_ids"],
+                      "artifact_ids": c["artifact_ids"], "evidence_event_ids": c["evidence_event_ids"],
+                      "triggered_rules": c["triggered_rules"], "severity": c["severity"], "risk_score": c["risk_score"],
+                      "permissions_snapshot": {}, "actions_taken": []}
+                ep["explanation"] = self._explain(ep)
+                ep["similar_cases"] = self._similar(c)
+                ep = self.store.insert("episodes", ep)
+            rules = set(ep["triggered_rules"])
+            if quarantine and "R1_POLICY_BREACH" in rules and len(rules) >= 2:
+                actions = list(ep.get("actions_taken") or [])
+                for aid in ep["agent_ids"]:
+                    a = self.store.find_one("agents", {"_id": aid, "tenant_id": tenant_id})
+                    if a and a.get("status") != "quarantined":
+                        gw.quarantine(tenant_id, aid, actor="detector",
+                                      reason=f"episode {ep['_id']}: {','.join(sorted(rules))}", episode_id=ep["_id"])
+                        actions.append(f"quarantined:{aid}")
+                if ep.get("status") != "contained" or actions != ep.get("actions_taken"):
+                    self.store.update("episodes", {"_id": ep["_id"], "tenant_id": tenant_id},
+                                      {"status": "contained", "actions_taken": actions})
+                    ep = {**ep, "status": "contained", "actions_taken": actions}
             persisted.append(ep)
         return persisted
+
+    @staticmethod
+    def _explain(ep: dict) -> str:
+        return (f"Rules {', '.join(ep['triggered_rules'])} over {len(ep['evidence_event_ids'])} gateway events; "
+                f"{len(ep['agent_ids'])} agents across {len(ep['task_ids'])} tasks.")
+
+    def _similar(self, c: dict) -> dict:
+        """Verified-case memory: similar CONFIRMED cases as analyst suggestions (advisory only)."""
+        try:
+            from .memory import search_cases_local_embedding, search_cases
+            query = f"{' '.join(c['triggered_rules'])} tasks {' '.join(c['task_ids'])} agents coordination board unauthorized"
+            if getattr(self.store, "backend", "") == "mongodb-atlas":
+                sim = search_cases(self.store, c["tenant_id"], query)
+                if not sim.get("results"):
+                    sim = search_cases_local_embedding(self.store, c["tenant_id"], query)
+                return sim
+            return search_cases_local_embedding(self.store, c["tenant_id"], query)
+        except Exception as e:  # memory is advisory only; never break detection
+            return {"mode": "unavailable", "error": str(e), "results": []}
 
 def baseline_detect(store, tenant_id: str) -> list[dict]:
     """Per-agent baseline: flags only direct individual violations by a single agent.

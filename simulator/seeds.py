@@ -5,6 +5,7 @@ MongoDB _id is unique per collection, so two tenants cannot both own a bare
 'task_marketing' document. Found by running the suite against a real mongod.
 """
 from __future__ import annotations
+from backend.app.policies import HIGH_IMPACT
 
 TASKS = {
     "task_marketing": {"description": "Marketing content", "allowed_resources": ["market_brief", "brand_assets"],
@@ -27,7 +28,7 @@ def _aid(tenant_id: str, i: int) -> str:
 
 def setup_world(store, tenant_id: str = "demo", n_agents: int = 30):
     store.insert("policies", {"_id": f"pol_{tenant_id}", "tenant_id": tenant_id, "version": 1,
-                              "allowed_edges": [], "blocked_actions": [], "high_impact_tools": ["request_sensitive_doc"]})
+                              "allowed_edges": [], "blocked_actions": [], "high_impact_tools": sorted(HIGH_IMPACT)})
     for tid, t in TASKS.items():
         full = _tid(tenant_id, tid)
         collabs = [{"with_task": _tid(tenant_id, c["with_task"]), "resource": c["resource"]}
