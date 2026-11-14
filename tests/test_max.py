@@ -41,7 +41,7 @@ def test_cockpit_graph_and_stream():
     from backend.app.main import app, store as api_store
     client = TestClient(app)
     html = client.get("/")
-    assert html.status_code == 200 and "SwarmGuard" in html.text
+    assert html.status_code == 200 and "Swarmtect" in html.text
     api_store.clear()
     r = client.post("/api/demo/run", json={"scenario": "S2"}, headers={"x-operator-secret": "test-secret"})
     assert r.status_code == 200

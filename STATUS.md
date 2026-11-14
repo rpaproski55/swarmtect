@@ -1,4 +1,4 @@
-# SwarmGuard — STATUS (verified, not promised)
+# Swarmtect — STATUS (verified, not promised)
 
 Updated: 2026-11-14, during Agents in Context Toronto hackathon build.
 

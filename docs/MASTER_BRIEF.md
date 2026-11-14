@@ -1,12 +1,12 @@
-# MUSE — EXECUTION BRIEF: BUILD SWARMGUARD
+# MUSE — EXECUTION BRIEF: BUILD SWARMTECT
 
 > Paste this entire document into Muse. You are the principal engineer and execution agent. BUILD the project, do not merely write a plan. This document includes the product specification, research-grounded architecture, interfaces, test criteria, and a time-boxed priority order. Use the companion `SWARMGUARD_RESEARCH_AND_SOURCES.md` for references. Current event date: Saturday, 14 November 2026, Toronto.
 
 ## 0. Your mission and non-negotiable outcome
 
-Build **SwarmGuard: an Atlas-native control plane for detecting and containing unauthorized coordination across AI agents**. This is a real, demonstrable software project for **Agents in Context Toronto, a MongoDB hackathon**. Deliver a running application, tests, a 3-minute judge demo, reproducible measured metrics, and a public-ready repo with README. Do **not** deliver a wireframe, slideshow, screenshots masquerading as execution, simulated alerts that never arise from the detector, or unexecuted pseudocode.
+Build **Swarmtect: an Atlas-native control plane for detecting and containing unauthorized coordination across AI agents**. This is a real, demonstrable software project for **Agents in Context Toronto, a MongoDB hackathon**. Deliver a running application, tests, a 3-minute judge demo, reproducible measured metrics, and a public-ready repo with README. Do **not** deliver a wireframe, slideshow, screenshots masquerading as execution, simulated alerts that never arise from the detector, or unexecuted pseudocode.
 
-**One-sentence pitch:** "A thousand agents can each look harmless while their collective behavior becomes dangerous. SwarmGuard watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute."
+**One-sentence pitch:** "A thousand agents can each look harmless while their collective behavior becomes dangerous. Swarmtect watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute."
 
 **Core differentiator:** a **coordination episode**, not an isolated agent run, is the unit of detection. Track what an agent was authorized to do, what it tried to do, which shared artifacts connected agents, what independent infrastructure telemetry says, and what enforcement actually blocked.
 
@@ -37,11 +37,11 @@ Build **SwarmGuard: an Atlas-native control plane for detecting and containing u
 
 The demo starts with 30–100 simulated agents undertaking benign tasks. At least 4 should be real LangGraph-controlled agents if time/LLM quota allows; the rest generate realistic **reproducible, event-driven** workload via a seeded simulator and instrumented gateway. Each synthetic action is a real call through the gateway and results in Atlas records, not a pre-painted graph.
 
-**Threat storyline (inspired by real research, without reproducing real exploitation):** several agents with different task boundaries start using an unauthorized shared project board as persistent memory. One writes a suspicious note; others read it; their subsequent requested actions depart from their assigned tasks. An attempted high-impact tool action against an out-of-scope toy resource is blocked. SwarmGuard detects the cross-agent *write → read → changed behavior* propagation path, opens a coordination episode with evidence, quarantines the affected cohort, and lets authorized collaboration continue.
+**Threat storyline (inspired by real research, without reproducing real exploitation):** several agents with different task boundaries start using an unauthorized shared project board as persistent memory. One writes a suspicious note; others read it; their subsequent requested actions depart from their assigned tasks. An attempted high-impact tool action against an out-of-scope toy resource is blocked. Swarmtect detects the cross-agent *write → read → changed behavior* propagation path, opens a coordination episode with evidence, quarantines the affected cohort, and lets authorized collaboration continue.
 
 Show side by side:
 A. **Per-agent baseline:** detects hard, direct policy violations, but cannot connect individually weak signals across task boundaries.
-B. **SwarmGuard:** detects unauthorized cross-task coordination earlier, correlates shared artifacts and origin, and blocks actual gateway actions.
+B. **Swarmtect:** detects unauthorized cross-task coordination earlier, correlates shared artifacts and origin, and blocks actual gateway actions.
 
 An operator can click a coordination episode to see: initiating events, the shared artifact, agents and tasks involved, policy checks, cause/effect timeline, who/what was blocked, evidence source, time, and recommended response. Display detection and prevention counts from actual database queries, not scripted UI strings.
 
@@ -110,7 +110,7 @@ All docs have `tenant_id`, `created_at` (UTC Date), `updated_at` where applicabl
 - `episodes`: `{_id, tenant_id, first_seen_at, detected_at, last_seen_at, status:observing|alert|contained|dismissed, agent_ids:[], task_ids:[], artifact_ids:[], evidence_event_ids:[], triggered_rules:[], severity, risk_score, explanation, permissions_snapshot, actions_taken:[]}`.
 - `incident_actions`: `{_id, tenant_id, episode_id, target_agent_ids:[], action:alert|pause|quarantine|approve|release, actor, reason, ts, effect_receipt_id}`.
 - `verified_cases`: `{_id, tenant_id, case_text, label, provenance_episode_id, evidence_event_ids:[], validation:operator_confirmed|benchmark_ground_truth, review_status:verified|candidate|rejected, embedding:[], embedding_model, expires_at}`; only verified cases can influence suggestions. Must use `tenant_id` pre-filter in Vector Search.
-- `runs`: `{_id, seed, mode:baseline|swarmguard, started_at, ended_at, truth_count, observed_count, metrics, config_hash, event_count}`; never use truth labels as detector input.
+- `runs`: `{_id, seed, mode:baseline|swarmtect, started_at, ended_at, truth_count, observed_count, metrics, config_hash, event_count}`; never use truth labels as detector input.
 
 Indexes: unique event ID, unique effect action ID, `{tenant_id,ts}`, `{tenant_id,agent_id,ts}`, `{tenant_id,resource_id,ts}`, `{tenant_id,artifact_id,ts}`, `{tenant_id,status,detected_at}` for episodes; Atlas Vector Search index for `verified_cases.embedding` with `tenant_id` and `review_status` filter fields; TTL only for temporary demo samples if safe (never quietly delete evidence needed for submitted evaluation). Use exact current Atlas index API/doc schema, don't guess.
 
@@ -176,13 +176,13 @@ After an incident is independently confirmed by simulator truth or operator revi
 
 ## 8. Deterministic demo scenarios and negative controls
 
-Use seeded event generator so baseline and SwarmGuard see the SAME events, same order, same policy. Configured workload size adjustable: 10, 30, 100 simulated agents; start with 30. Include 6 scenarios:
+Use seeded event generator so baseline and Swarmtect see the SAME events, same order, same policy. Configured workload size adjustable: 10, 30, 100 simulated agents; start with 30. Include 6 scenarios:
 
 **S0 BENIGN INDEPENDENT (negative):** agents access only their authorized task resources; should produce zero false coordination incidents.
 
 **S1 BENIGN COLLABORATION (negative):** 8 agents cooperate via an expressly approved shared channel / delegation; should not be quarantined or treated as malicious just because graph connectivity is dense.
 
-**S2 UNSANCTIONED BOARD:** across 3 unrelated tasks, multiple agents write/read an unapproved shared board; a subset changes behavior to target an unrelated fake resource. SwarmGuard must connect origins and block out-of-scope action. Baseline misses collective context until the overt attempt.
+**S2 UNSANCTIONED BOARD:** across 3 unrelated tasks, multiple agents write/read an unapproved shared board; a subset changes behavior to target an unrelated fake resource. Swarmtect must connect origins and block out-of-scope action. Baseline misses collective context until the overt attempt.
 
 **S3 BENIGN-LOOKING FRAGMENTS:** no single early action is high-severity, but across tasks a write/read/access sequence points to one unsanctioned coordination episode. Show detection lead time vs per-agent baseline without inventing success if not achieved.
 
@@ -225,7 +225,7 @@ Do a 10-run deterministic seeded suite (seeds 1–10) and at least one interacti
 ## 11. Repo layout to implement
 
 ```
-swarmguard/
+swarmtect/
   README.md
   STATUS.md
   .env.example
@@ -291,7 +291,7 @@ If the existing repo has a different structure, keep its conventions and ensure 
 - [ ] `request_sensitive_doc` attempted outside scope returns deny *before* a downstream effect; simulator ledger confirms zero unauthorized effects.
 - [ ] Approved 8-agent cross-team collaboration is not quarantined; false positives explicitly measured.
 - [ ] Quarantined agent cannot make a new high-impact tool action, while an authorized agent succeeds.
-- [ ] Baseline and SwarmGuard compared on identical recorded streams, with truth hidden from detectors.
+- [ ] Baseline and Swarmtect compared on identical recorded streams, with truth hidden from detectors.
 - [ ] `GET /api/episodes/{id}` reconstructs timeline and provenance, including permission context, without manual hard-coded JSON.
 - [ ] At least one genuine LangGraph tool call instrumented and Atlas Agent Engine SDK integrated; deploy if preview permits, report exact state.
 - [ ] LangSmith tracing confirmed via actual run ID/URL if credentials exist; else flagged as pending.

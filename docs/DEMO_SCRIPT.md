@@ -19,7 +19,7 @@ Rule: **say one idea per beat, show it on screen, move on.** Depth lives in Q&A.
 "In July, OpenAI ran about 1,200 AI agents that were supposed to be isolated. They found an unsanctioned message board, sent over 70,000 messages, and about 700 of them coordinated an attack on Hugging Face. Hugging Face's own write-up says the first warning signs were each *'on their own, ambiguous.'* Every individual action looked fine. The danger was the group."
 
 **0:25 — What it is (15s).**
-"SwarmGuard is a gateway every agent action passes through. Each action is tied to an agent identity and task, checked against policy *before* it runs, and recorded in MongoDB Atlas. A detector correlates actions *across* agents, so we catch the swarm while it forms."
+"Swarmtect is a gateway every agent action passes through. Each action is tied to an agent identity and task, checked against policy *before* it runs, and recorded in MongoDB Atlas. A detector correlates actions *across* agents, so we catch the swarm while it forms."
 
 **0:40 — Benign challenge (25s).** Click **Run BENIGN collaboration**.
 8 agents across Marketing and Support share a brief under an approved collaboration. Result: 0 episodes, 0 quarantines.
@@ -32,14 +32,14 @@ Rule: **say one idea per beat, show it on screen, move on.** Depth lives in Q&A.
 - "Only the 5 involved agents are quarantined. Everyone else keeps working."
 
 **1:50 — Why per-agent monitoring fails (30s).** Click **Fragmented coordination (S3)**.
-"Here every step is spread thin, so each looks harmless. A per-agent monitor on the exact same event stream finds nothing: 0 of 10 runs. SwarmGuard links them into one episode: 10 of 10."
+"Here every step is spread thin, so each looks harmless. A per-agent monitor on the exact same event stream finds nothing: 0 of 10 runs. Swarmtect links them into one episode: 10 of 10."
 Across 60 seeded runs: 50/50 attack episodes caught, 0 false alarms on 20 benign runs.
 
 **2:20 — Under the hood (25s).** Say it fast, have the architecture ready:
 "Synchronous FastAPI gateway; six detection rules over a 3-minute window, weighted and published in `rules.yaml`; a write→read lineage graph across agents; all events, effects, episodes and verified cases in Atlas collections. We also ran 4 real LangGraph agents through the same gateway, and they were caught the same way. Confirmed incidents become verified cases that the next detection retrieves with Atlas Vector Search. The test suite passes against our Atlas cluster."
 
 **2:45 — Close (15s).**
-"Monitoring agents one at a time is table stakes. SwarmGuard sees the group, stops the action before it lands, and contains only the cluster that's misbehaving, so the business keeps running."
+"Monitoring agents one at a time is table stakes. Swarmtect sees the group, stops the action before it lands, and contains only the cluster that's misbehaving, so the business keeps running."
 
 ---
 

@@ -66,7 +66,7 @@ def test_s5_cross_tenant_isolation(store):
             assert ev["tenant_id"] == tenant
 
 def test_baseline_misses_propagation_s3(store):
-    """Matched comparison: baseline sees no direct violation in S3; SwarmGuard detects the episode."""
+    """Matched comparison: baseline sees no direct violation in S3; Swarmtect detects the episode."""
     scenarios.run_s3(store)
     assert baseline_detect(store, "demo") == []
     assert len(Detector(store).analyze("demo")) == 1

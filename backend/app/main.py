@@ -7,7 +7,7 @@ from .gateway import Gateway
 from .detector import Detector, baseline_detect
 from .metrics import compute_metrics
 
-app = FastAPI(title="SwarmGuard", version="0.1.0")
+app = FastAPI(title="Swarmtect", version="0.1.0")
 store = get_store()
 OPERATOR_SECRET = os.environ.get("OPERATOR_SECRET", "demo-operator-secret-change-me")
 

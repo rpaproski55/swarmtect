@@ -1,8 +1,8 @@
-# Handoff for the receiving Muse — SwarmGuard
+# Handoff for the receiving Muse — Swarmtect
 
 You are receiving a **working, tested codebase**, not a spec. Read `STATUS.md` first — it separates verified facts from pending items. Do not re-plan the architecture; extend what's here.
 
-**What this is:** SwarmGuard — Atlas-native detection/containment of unauthorized AI-agent swarm coordination, built for the Agents in Context Toronto (MongoDB) hackathon, Nov 14 2026. Core idea: the *coordination episode* (write → read → goal drift across agents/tasks) is the unit of detection; a trusted gateway blocks high-impact actions *before* effect; benign approved collaboration must never alert.
+**What this is:** Swarmtect — Atlas-native detection/containment of unauthorized AI-agent swarm coordination, built for the Agents in Context Toronto (MongoDB) hackathon, Nov 14 2026. Core idea: the *coordination episode* (write → read → goal drift across agents/tasks) is the unit of detection; a trusted gateway blocks high-impact actions *before* effect; benign approved collaboration must never alert.
 
 **Verified state at handoff (don't take this file's word — run the tests):**
 - `RUNNER_MODE=aer .venv/bin/python -m pytest -q` → 19 passed when `SWARMGUARD_MONGO_TEST_URI` points at a real mongod; 18 passed + 1 skipped without it.

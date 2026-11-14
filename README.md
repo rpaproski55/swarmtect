@@ -1,11 +1,11 @@
-# SwarmGuard
+# Swarmtect
 
 **Atlas-native detection and containment of unauthorized AI-agent swarm coordination.**
 Built during the Agents in Context Toronto hackathon (MongoDB), 14 Nov 2026.
 
-> A thousand agents can each look harmless while their collective behavior becomes dangerous. SwarmGuard watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute.
+> A thousand agents can each look harmless while their collective behavior becomes dangerous. Swarmtect watches their shared resources, connects the evidence, and prevents unauthorized actions before they execute.
 
-The unit of detection is a **coordination episode** — not an isolated agent run. SwarmGuard tracks what each agent was authorized to do, what it tried to do, which shared artifacts connected agents (write → read → changed behavior), and what the gateway actually blocked, in an independently recorded effect ledger.
+The unit of detection is a **coordination episode** — not an isolated agent run. Swarmtect tracks what each agent was authorized to do, what it tried to do, which shared artifacts connected agents (write → read → changed behavior), and what the gateway actually blocked, in an independently recorded effect ledger.
 
 ## 5-minute setup
 
@@ -52,6 +52,6 @@ Deterministic rules over gateway-authoritative events (weights in `configs/rules
 See `STATUS.md` — it separates verified integrations from pending ones (Atlas URI, Agent Engine preview deployment, LangSmith traces, Vector Search index). Nothing pending is claimed as done. The in-memory fallback is labelled as such everywhere it appears.
 
 ## Limitations
-Coverage is limited to instrumented tool/shared-resource surfaces. Unseen network/filesystem channels, covert channels inside model activations, and a compromised gateway are out of scope (brief §3). SwarmGuard is *inspired by* failure modes of the July 2026 Hugging Face incident; it does not claim it could have prevented that incident.
+Coverage is limited to instrumented tool/shared-resource surfaces. Unseen network/filesystem channels, covert channels inside model activations, and a compromised gateway are out of scope (brief §3). Swarmtect is *inspired by* failure modes of the July 2026 Hugging Face incident; it does not claim it could have prevented that incident.
 
 Docs: `docs/ARCHITECTURE.md`, `docs/DEMO_SCRIPT.md` (3-minute judge script), `docs/RESEARCH.md`, `docs/MASTER_BRIEF.md`.

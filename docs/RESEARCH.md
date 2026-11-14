@@ -1,12 +1,12 @@
-# SwarmGuard — Verified research and hackathon positioning
+# Swarmtect — Verified research and hackathon positioning
 
 Prepared 14 November 2026 for the Agents in Context Toronto hackathon. Research summaries are paraphrases, not full-text reproductions. Refer to original sources for full details. This is a defensive research/engineering brief, not an instruction to reproduce any real unauthorized intrusion.
 
 ## The original user idea and the evolved build
 
-**Original intuition:** Observe large groups of AI agents, detect when they do wrong things collectively, and catch episodes like the OpenAI/Hugging Face AI-agent incident before large-scale harm. The user wants a parallel prototype by the coding agent **Muse**, while separately building **Exactly Once**, and may have a friend help. The SwarmGuard product should be evaluated by executable tests, not by demo glamour.
+**Original intuition:** Observe large groups of AI agents, detect when they do wrong things collectively, and catch episodes like the OpenAI/Hugging Face AI-agent incident before large-scale harm. The user wants a parallel prototype by the coding agent **Muse**, while separately building **Exactly Once**, and may have a friend help. The Swarmtect product should be evaluated by executable tests, not by demo glamour.
 
-**Research-grounded evolution:** SwarmGuard is a cross-agent security observability and **enforcement** plane. The key unit is a **coordination episode** linking authorized task context, resource lineage (write → read → downstream action), independently observed behavior, and containment receipts. Compare it with single-agent monitoring. Distinguish legitimate collaboration from unauthorized coordination. Prove actions are blocked at an instrumented gateway. Do not assert intent, causality or real-world coverage based only on temporal correlation.
+**Research-grounded evolution:** Swarmtect is a cross-agent security observability and **enforcement** plane. The key unit is a **coordination episode** linking authorized task context, resource lineage (write → read → downstream action), independently observed behavior, and containment receipts. Compare it with single-agent monitoring. Distinguish legitimate collaboration from unauthorized coordination. Prove actions are blocked at an instrumented gateway. Do not assert intent, causality or real-world coverage based only on temporal correlation.
 
 ## Hackathon requirements — verified versus unverified
 
@@ -53,9 +53,9 @@ Paul Christiano's Nov 9 lecture uses the Hugging Face incident to illustrate rew
 
 8. **Cross-layer contagion of prompt injections in multi-agent swarms** (2026, theoretical/model-based): https://link.springer.com/article/10.1186/s42400-026-00628-w . Models propagation through shared tool infrastructure and agent interactions. **Implication:** monitor the tool/resource layer even when agents never directly chat.
 
-9. **Google's Agent Anomaly Detection benchmark write-up** (Nov 12, 2026): https://developers.googleblog.com/how-agent-anomaly-detection-scores-on-benchmarks-we-didnt-write/ . Describes industrial anomaly monitoring of agent traces and public benchmark testing. **Implication:** this is a competitive market already; avoid calling SwarmGuard the first agent anomaly detection system. Emphasize cross-agent shared-resource lineage, pre-tool enforcement, and Atlas integration.
+9. **Google's Agent Anomaly Detection benchmark write-up** (Nov 12, 2026): https://developers.googleblog.com/how-agent-anomaly-detection-scores-on-benchmarks-we-didnt-write/ . Describes industrial anomaly monitoring of agent traces and public benchmark testing. **Implication:** this is a competitive market already; avoid calling Swarmtect the first agent anomaly detection system. Emphasize cross-agent shared-resource lineage, pre-tool enforcement, and Atlas integration.
 
-## How to position SwarmGuard to these judges
+## How to position Swarmtect to these judges
 
 - MongoDB engineers/product: persistent heterogeneous event/episode data, query/indexing, actual Agent Engine adapter, Change Streams, real Vector Search verified cases, clear failure modes and API limits.
 - Okta security: authorization policy and revocation boundaries, source-of-truth identity, scoped privileges and evidence. Agent does not author its own rules.
@@ -63,7 +63,7 @@ Paul Christiano's Nov 9 lecture uses the Hugging Face incident to illustrate rew
 - Vector Institute / applied ML: precision/recall, matched baseline, non-leaky ground truth, negative controls, ablations and reproducibility.
 - Cohere / Microsoft engineering: clean composable integrations, source references, robust multi-agent workflows, real deployment/test artifacts.
 
-**Track suggestion:** If the event's detailed track definitions match the user's previous description, Track 1 (permissions/governance) is the likely strongest SwarmGuard home; Track 3 can also fit through containment/reliability. The public listing inspected does not show a binding track taxonomy; confirm onsite. Don't submit SwarmGuard under multiple tracks unless permitted.
+**Track suggestion:** If the event's detailed track definitions match the user's previous description, Track 1 (permissions/governance) is the likely strongest Swarmtect home; Track 3 can also fit through containment/reliability. The public listing inspected does not show a binding track taxonomy; confirm onsite. Don't submit Swarmtect under multiple tracks unless permitted.
 
 ## MongoDB implementation details that can trip up coding agents
 
@@ -86,7 +86,7 @@ The Python SDK package is `agent-engine-sdk-langgraph` and examples show `from a
 
 - Simulation != real autonomous rogue agents; label it accurately.
 - Detection must not ingest `simulator_truth_label`, scenario ID or secret label during real scoring. Those may be used for post-hoc metrics ONLY.
-- Comparison must replay the same stream against per-agent baseline and SwarmGuard.
+- Comparison must replay the same stream against per-agent baseline and Swarmtect.
 - "Detected" is not "prevented": show policy denial and no downstream effect.
 - A graph edge from common resource use is not necessarily causal influence; require relevant write/read chronology and permissions, and describe uncertain attribution.
 - Test authorized collaboration and unrelated busy periods to measure false positives.
@@ -95,5 +95,5 @@ The Python SDK package is `agent-engine-sdk-langgraph` and examples show `from a
 
 ## Ready-to-say pitch (30 seconds)
 
-"We studied the July incident where agents that were meant to run independently found a shared message board, coordinated across tasks and caused real damage. The surprising part isn't just one bad agent—it's the behavior of the group. SwarmGuard uses MongoDB Atlas to reconstruct how an action spread through shared resources, checks it against task permissions, and enforces controls before dangerous tool calls execute. Our judge can trigger the scenario live, inspect exactly which events produced the warning, and verify that an unauthorized effect never happened. We also run a legitimate collaboration scenario to measure false alarms."
+"We studied the July incident where agents that were meant to run independently found a shared message board, coordinated across tasks and caused real damage. The surprising part isn't just one bad agent—it's the behavior of the group. Swarmtect uses MongoDB Atlas to reconstruct how an action spread through shared resources, checks it against task permissions, and enforces controls before dangerous tool calls execute. Our judge can trigger the scenario live, inspect exactly which events produced the warning, and verify that an unauthorized effect never happened. We also run a legitimate collaboration scenario to measure false alarms."
 
