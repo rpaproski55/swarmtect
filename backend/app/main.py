@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 from fastapi import FastAPI, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from .store import get_store
 from .gateway import Gateway
 from .detector import Detector, baseline_detect
@@ -37,7 +37,7 @@ def require_operator(x_operator_secret: str | None):
 
 class ToolReq(BaseModel):
     tenant_id: str = "demo"; agent_id: str; task_id: str | None = None; tool: str; action: str
-    resource_id: str; artifact_id: str | None = None; payload: dict | None = None; action_id: str
+    resource_id: str = Field(min_length=1); artifact_id: str | None = None; payload: dict | None = None; action_id: str
 class WriteReq(BaseModel):
     tenant_id: str = "demo"; agent_id: str; task_id: str | None = None; resource_id: str
     channel_id: str = "chan"; content: str; action_id: str

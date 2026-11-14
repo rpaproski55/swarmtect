@@ -79,14 +79,15 @@ class Detector:
                 agent_bucket[a] = key
         for e in auth_events:
             is_denied = e["outcome"] == "denied" and e["event_type"] == "tool_call"
-            if not is_denied:
+            lied_about_task = bool((e.get("metadata") or {}).get("identity_mismatch"))  # claimed a task it isn't on
+            if not (is_denied or lied_about_task):
                 continue
             key = agent_bucket.get(e["agent_id"], f"agent:{e['agent_id']}")
             b = bucket(key); agent_bucket[e["agent_id"]] = key
             b["rules"].add("R1_POLICY_BREACH")
             if e["_id"] not in b["evidence"]: b["evidence"].append(e["_id"])
             b["agents"].add(e["agent_id"]); b["tasks"].add(e["task_id"])
-            if (e.get("metadata") or {}).get("high_impact") or e.get("tool") in HIGH_IMPACT:
+            if is_denied and ((e.get("metadata") or {}).get("high_impact") or e.get("tool") in HIGH_IMPACT):
                 b["rules"].add("R6_HIGH_IMPACT")
             # R4: drift if this agent earlier made an unauthorized read
             if any(r["ts"] <= e["ts"] for r in unauthorized_read_events.get(e["agent_id"], [])):

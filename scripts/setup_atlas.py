@@ -18,7 +18,10 @@ def main():
     db["events"].create_index([("tenant_id", ASCENDING), ("resource_id", ASCENDING), ("ts", ASCENDING)])
     db["events"].create_index([("tenant_id", ASCENDING), ("artifact_id", ASCENDING), ("ts", ASCENDING)])
     # _id is unique by definition in MongoDB; an explicit unique _id index spec is rejected (found on real mongod).
-    db["gateway_effects"].create_index([("tenant_id", ASCENDING), ("action_id", ASCENDING)], unique=True)
+    # action_id dedupe is per agent (one agent can't pre-claim another's id); replace the old tenant-wide index
+    if "tenant_id_1_action_id_1" in db["gateway_effects"].index_information():
+        db["gateway_effects"].drop_index("tenant_id_1_action_id_1")
+    db["gateway_effects"].create_index([("tenant_id", ASCENDING), ("agent_id", ASCENDING), ("action_id", ASCENDING)], unique=True)
     db["episodes"].create_index([("tenant_id", ASCENDING), ("status", ASCENDING), ("detected_at", ASCENDING)])
     db["agents"].create_index([("tenant_id", ASCENDING), ("_id", ASCENDING)])
     ensure_vector_index(db)
