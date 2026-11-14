@@ -36,7 +36,9 @@
 ### ⏸ Pause 2: on the red BLOCKED box
 > "Now something goes wrong. One agent posts a note on a board **nobody approved**. Agents from three different teams read it. Then one of them goes after **sensitive data**.
 >
-> Swarmtect **blocked it before it ran**. Not an alert after the damage. It never happened."
+> Swarmtect **blocked it before it ran**. Not an alert after the damage. It never happened.
+>
+> Every agent action is checked and recorded in **MongoDB Atlas** before it runs: who did it, under what permission, and whether it actually happened. Agents can't edit that record, so it's an **audit trail you can trust**."
 
 *(Play.)*
 
@@ -47,7 +49,8 @@
 *(Play.)*
 
 ### ⏸ Pause 4: after Step 3 "Remember it"
-> "Once someone confirms the incident, Swarmtect **remembers it**. If the same pattern shows up again, it's recognized right away."
+> "Once someone confirms the incident, Swarmtect **remembers it**.
+> Confirmed incidents become memory. **Atlas Vector Search** recognizes the same pattern next time, even if it looks a little different."
 
 *(Play.)*
 
@@ -80,9 +83,9 @@
 | Pause | One line to remember |
 |---|---|
 | 1 · Step 1 | Allowed teamwork, no alarm |
-| 2 · BLOCKED | Unapproved board → sensitive data → blocked before it ran |
+| 2 · BLOCKED | Unapproved board → sensitive data → blocked before it ran · recorded in Atlas = trusted audit trail |
 | 3 · Team grid | 5 paused, 25 keep working |
-| 4 · Step 3 | It remembers incidents |
+| 4 · Step 3 | Confirmed incidents become memory · Vector Search spots repeats |
 | 5 · LangGraph | Real framework agents, caught the same way |
 
 **Before you go on:** app open with the Atlas pill green, video cued up, and offer judges a live click if time allows: "Want to see it live? Pick a step."
