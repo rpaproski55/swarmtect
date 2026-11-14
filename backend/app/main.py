@@ -11,6 +11,23 @@ app = FastAPI(title="SwarmGuard", version="0.1.0")
 store = get_store()
 OPERATOR_SECRET = os.environ.get("OPERATOR_SECRET", "demo-operator-secret-change-me")
 
+import threading, logging, traceback
+log = logging.getLogger("swarmguard")
+# Demo runs wipe and rewrite the shared demo collections, and scenario action IDs restart at 1,
+# so two overlapping runs (double click, a second tab, a script) would collide on the unique
+# (tenant_id, action_id) index. Detector re-runs triggered by GETs also write. Serialize them.
+DEMO_LOCK = threading.RLock()
+
+def _fail(where: str, e: Exception):
+    log.error("%s failed: %s\n%s", where, e, traceback.format_exc())
+    name = type(e).__name__
+    hint = ""
+    if "ServerSelection" in name or "AutoReconnect" in name or "NetworkTimeout" in name:
+        hint = " (Atlas unreachable: check Wi-Fi and the Atlas IP access list)"
+    elif "BulkWrite" in name or "DuplicateKey" in name:
+        hint = " (overlapping demo runs; try again)"
+    raise HTTPException(500, f"{where}: {name}: {str(e)[:300]}{hint}")
+
 def gw() -> Gateway:
     return Gateway(store)
 
@@ -95,7 +112,8 @@ def events_stream(tenant_id: str = "demo"):
 def confirm_episode(episode_id: str, tenant_id: str = "demo", x_operator_secret: str | None = Header(default=None)):
     require_operator(x_operator_secret)
     from .memory import confirm_episode_as_case
-    case = confirm_episode_as_case(store, tenant_id, episode_id)
+    with DEMO_LOCK:
+        case = confirm_episode_as_case(store, tenant_id, episode_id)
     if not case:
         raise HTTPException(404, "episode not found")
     return case
@@ -138,8 +156,9 @@ def agents(tenant_id: str = "demo"):
 
 @app.get("/api/episodes")
 def episodes(tenant_id: str = "demo"):
-    Detector(store).run(tenant_id)
-    return store.find("episodes", {"tenant_id": tenant_id})
+    with DEMO_LOCK:
+        Detector(store).run(tenant_id)
+        return store.find("episodes", {"tenant_id": tenant_id})
 
 @app.get("/api/episodes/{episode_id}")
 def episode(episode_id: str, tenant_id: str = "demo"):
@@ -155,8 +174,9 @@ def episode(episode_id: str, tenant_id: str = "demo"):
 
 @app.get("/api/metrics")
 def metrics(tenant_id: str = "demo"):
-    Detector(store).run(tenant_id)
-    return compute_metrics(store, tenant_id)
+    with DEMO_LOCK:
+        Detector(store).run(tenant_id)
+        return compute_metrics(store, tenant_id)
 
 @app.get("/api/baseline")
 def baseline(tenant_id: str = "demo"):
@@ -177,7 +197,8 @@ def release(agent_id: str, tenant_id: str = "demo", x_operator_secret: str | Non
 @app.post("/api/demo/reset")
 def demo_reset(x_operator_secret: str | None = Header(default=None)):
     require_operator(x_operator_secret)
-    store.clear()
+    with DEMO_LOCK:
+        store.clear()
     return {"reset": True}
 
 @app.post("/api/demo/run")
@@ -186,6 +207,16 @@ def demo_run(req: DemoReq, x_operator_secret: str | None = Header(default=None))
     from simulator.scenarios import SCENARIOS
     if req.scenario != "S6" and req.scenario not in SCENARIOS:
         raise HTTPException(400, f"unknown scenario {req.scenario}")
+    try:
+        with DEMO_LOCK:
+            return _demo_run(req)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _fail(f"demo run {req.scenario}", e)
+
+def _demo_run(req: "DemoReq"):
+    from simulator.scenarios import SCENARIOS
     import time as _t
     t0 = _t.perf_counter()
     # On Atlas, run the click's workload in a write-behind batch, then persist in bulk (see BatchingStore).
